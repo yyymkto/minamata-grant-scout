@@ -28,7 +28,7 @@ try {
     skipExisting: true,
   });
 
-  const args = ["d1", "migrations", "apply", dbName, mode];
+  const args = ["d1", "migrations", "apply", dbName, mode, "--persist-to", resolve(cwd, ".wrangler/state")];
   const result = spawnSync("wrangler", args, { stdio: "inherit", cwd: tempDir });
   if (result.error) {
     console.error(result.error.message);

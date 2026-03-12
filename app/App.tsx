@@ -2,17 +2,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Route, Switch } from "wouter";
 import { useSession } from "./hooks/useSession";
 import { AppShell } from "./components/AppShell";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AuthPage } from "./pages/AuthPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { GrantListPage } from "./pages/grants/GrantListPage";
+import { GrantDetailPage } from "./pages/grants/GrantDetailPage";
 
 const queryClient = new QueryClient();
 
-/**
- * Record Engine nav items — add entries here as you generate new records.
- * Each record page will be mounted at /:recordKey
- */
-const recordNavItems: { label: string; href: string }[] = [
-  // Example: { label: "Houses", href: "/houses" },
+const navItems = [
+  { label: "補助金一覧", href: "/grants" },
 ];
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -34,20 +33,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
   return (
-    <AppShell navItems={recordNavItems}>
+    <AppShell navItems={navItems}>
       {children}
     </AppShell>
-  );
-}
-
-function WelcomePage() {
-  return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-2xl font-semibold text-white">Tara Grant Scout</h1>
-      <p className="text-sm text-slate-400">
-        Ready to go. Add your first record with the Record Engine.
-      </p>
-    </div>
   );
 }
 
@@ -56,8 +44,11 @@ function AppRoutes() {
     <AuthGuard>
       <Switch>
         <Route path="/settings" component={SettingsPage} />
-        <Route path="/" component={WelcomePage} />
-        {/* record-engine:routes */}
+        <Route path="/grants" component={GrantListPage} />
+        <Route path="/grants/:id" component={GrantDetailPage} />
+        <Route path="/">
+          <GrantListPage />
+        </Route>
         <Route>
           <div className="mx-auto max-w-3xl py-20 text-center">
             <h2 className="text-xl font-semibold text-white">404</h2>
@@ -72,7 +63,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppRoutes />
+      <ErrorBoundary>
+        <AppRoutes />
+      </ErrorBoundary>
     </QueryClientProvider>
   );
 }

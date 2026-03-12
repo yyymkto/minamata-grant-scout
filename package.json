@@ -22,11 +22,15 @@
     "db:migrate": "node scripts/d1-migrate.mjs",
     "db:migrate:remote": "node scripts/d1-migrate.mjs remote",
     "seed:demo": "node scripts/seed-demo.mjs",
+    "seed:grants": "node scripts/seed-grants.mjs",
+    "ingest": "node scripts/ingest.mjs",
     "record:generate": "node scripts/generate-record.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@hono/zod-validator": "^0.5",
     "@tanstack/react-query": "^5",
+    "cheerio": "^1.2.0",
     "drizzle-orm": "^0.43",
     "hono": "^4",
     "react": "^19",

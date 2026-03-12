@@ -7,6 +7,7 @@ import health from "./routes/health";
 import auth from "./routes/auth";
 import orgs from "./routes/orgs";
 import modules from "./routes/modules";
+import grantsRoutes from "./routes/grants";
 import {
   purgeExpiredSessions,
   purgeStaleAuthTokens,
@@ -65,6 +66,7 @@ export const app = new Hono<AppContextEnv>()
   .route("/api/health", health)
   .route("/api/modules", modules)
   .route("/api/orgs", orgs)
+  .route("/api/grants", grantsRoutes)
   .route("/api/auth", auth);
 
 export type AppType = typeof app;
