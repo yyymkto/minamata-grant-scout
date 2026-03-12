@@ -1,54 +1,31 @@
 # tara-grant-scout
 
-Cloudflare Workers 上で動く業務アプリの土台です。
+太良町向け補助金AI発見システム。全省庁の補助金情報を自動収集し、太良町への適合度をAIで評価・スコアリングする。
 
-この生成先リポジトリは starter 本体ではなく、すぐに業務機能追加へ入るための app です。
+## 概要
 
-このリポジトリは core を中心に、必要な example だけを足す前提です。
+```
+jGrants API（全省庁） ─┐
+                       ├─→ D1保存 → AI解析 → スコア付き一覧（Web UI）
+農水省スクレイパー ────┘
+```
 
-- Core: 認証、セッション、権限、organization context、API 契約、DB、ログ、テスト、Cloudflare bindings
-- Optional Examples: なし
-
-## 何が入っているか
-
-- React + TypeScript + Tailwind CSS v4
-- Hono on Cloudflare Workers
-- D1 + Drizzle ORM
-- Zod による shared schema
-- Hono RPC client による型付き API 呼び出し
-- D1 session + HttpOnly Cookie 認証
-- CSRF 保護
-- request id
-- 構造化 JSON ログ
-- 統一 API エラー形式
-- Durable Object ベースの auth rate limit
-- organization / membership / current organization context
-- password reset request / confirm flow
-- email verification request / confirm flow
-- Vitest ベースの自動テスト
+- **jGrants API**（デジタル庁）で全省庁の補助金を一括取得
+- **農水省スクレイパー**で農林水産省の公募情報を直接取得
+- AIが太良町の視点で適合度を A/B/C ランク評価（100点満点スコア付き）
+- 担当部署の提案、活用シナリオの生成まで自動化
 
 ## スタック
 
 | レイヤー | 技術 |
 |---|---|
-| Frontend | React + TypeScript + Tailwind CSS + TanStack Query |
+| Frontend | React + TypeScript + Tailwind CSS v4 + TanStack Query |
 | Backend | Hono on Cloudflare Workers |
 | Database | D1 (SQLite) + Drizzle ORM |
-| Rate limit | Durable Object |
-| Async jobs | Cloudflare Queues |
-| Validation | Zod |
 | Build | Vite + `@cloudflare/vite-plugin` |
-| Testing | Vitest |
+| データソース | jGrants API, 農水省 Web スクレイピング |
 
 ## クイックスタート
-
-### 前提
-
-- Node.js 20+
-- npm
-- Wrangler CLI
-
-### ローカル開発
 
 ```bash
 npm install
@@ -56,133 +33,104 @@ npm run db:migrate
 npm run dev
 ```
 
-### Cloudflare へデプロイ
+`http://localhost:5173` でブラウザから一覧が見れる（認証不要）。
+
+## 補助金データの取り込み
 
 ```bash
-# 1. リソース作成
-wrangler d1 create my-app-db
-wrangler queues create my-app-jobs
+# jGrants（全省庁）から募集中の補助金を取得・保存
+npm run ingest -- --source jgrants --skip-analysis
 
-# 2. wrangler.jsonc の bindings / ids を更新
-# 3. リモート DB へ migration 適用
-npm run db:migrate:remote
+# 農水省から公募情報を取得・保存
+npm run ingest -- --source maff --skip-analysis
 
-# 4. デプロイ
-npm run deploy
+# 全ソースから取得（AI解析付き）
+npm run ingest
 ```
 
-## コマンド
+### ingest オプション
 
-| コマンド | 内容 |
+| オプション | 内容 |
 |---|---|
-| `npm run dev` | 統合開発モード |
-| `npm run dev:split` | Wrangler と Vite を分離起動 |
-| `npm run build` | ビルド |
-| `npm run preview` | ビルド後プレビュー |
-| `npm run deploy` | Cloudflare にデプロイ |
-| `npm test` | 自動テスト |
-| `npm run test:watch` | テスト watch |
-| `npm run db:generate` | Drizzle から migration 生成 |
-| `npm run db:migrate` | ローカル D1 に migration 適用 |
-| `npm run db:migrate:remote` | リモート D1 に migration 適用 |
-| `npm run seed:demo` | ローカル D1 に demo user を投入 |
-| `npm run doctor` | generated app としての整合性チェック |
-| `npm run record:generate -- --record shared/records/xxx.ts` | Record Engine でコード生成 |
+| `--source <name>` | 特定ソースのみ（`jgrants`, `maff`） |
+| `--skip-analysis` | AI解析をスキップ（取得・保存のみ） |
+| `--dry-run` | DB書き込みなし（確認用） |
+| `--remote` | リモートD1に書き込み |
 
-## Optional Examples
+## データソース
 
-この app は core-first 構成です。optional example は含みません。
+### jGrants API
+
+デジタル庁が運営する補助金ポータルの公開API。全省庁の補助金を統合的に検索・取得できる。
+
+- エンドポイント: `https://api.jgrants-portal.go.jp/exp/v1/public/subsidies`
+- 認証不要
+- 検索条件: キーワード、地域（佐賀県 / 全国）、募集状態
+- 詳細取得: v2エンドポイントで事業概要テキストも取得
+
+### 農水省スクレイパー
+
+`https://www.maff.go.jp/j/supply/hozyo/` の公募一覧テーブルをスクレイピング。和暦日付の変換、相対URLの解決を含む。
+
+## AI解析
+
+各補助金に対して以下を生成：
+
+| フィールド | 内容 |
+|---|---|
+| `tara_fit_rank` | A（有望）/ B（検討の余地あり）/ C（関連薄い） |
+| `tara_fit_score` | 0〜100の適合スコア |
+| `tara_fit_reason` | 太良町への適合理由 |
+| `suggested_department` | 担当部署（企画商工課、農林水産課 等） |
+| `tara_use_case` | 太良町での具体的な活用シナリオ |
+| `summary_short` | 事業の要約 |
+| `support_type` | 補助金 / 交付金 / 助成金 |
+| `target_entities` | 対象者 |
+
+太良町プロファイル（`scripts/lib/tara-profile.mjs`）に基づいて評価：
+- 人口約8,000人、高齢化率40%超の過疎地域
+- 基幹産業: みかん（竹崎みかん）、牡蠣（竹崎牡蠣）、林業
+- 課題: 人口減少、担い手不足、デジタル化の遅れ
+
+## API
+
+| エンドポイント | 内容 |
+|---|---|
+| `GET /api/grants` | 補助金一覧（フィルタ: `rank`, `ministry`, `department`, `q`） |
+| `GET /api/grants/:id` | 補助金詳細 + AI解析結果 |
 
 ## ディレクトリ構成
 
 ```text
 tara-grant-scout/
-├── app/                    React UI
-│   ├── hooks/              core hooks
-│   └── lib/api.ts          型付き Hono RPC client
-├── migrations/             core migrations
-├── shared/                 フロント・バック共有契約
-│   └── schemas/            core schema
-├── src/                    Worker backend
-│   ├── db/                 Drizzle schema
-│   ├── durable-objects/    rate limiter
-│   ├── lib/                auth, session, audit, organizations など
-│   ├── middleware/         auth, csrf, role, request-id
-│   ├── queues/             queue producer / consumer
-│   ├── routes/             core API routes
-│   └── index.ts            Worker entrypoint
-├── scripts/                補助スクリプト
-├── test/                   unit / integration tests
-└── README.md
+├── app/                     React UI
+│   ├── hooks/useGrants.ts   補助金データフック
+│   └── pages/grants/        一覧・詳細ページ
+├── src/                     Worker backend
+│   ├── db/schema.ts         Drizzle schema（grants, grant_ai_analyses）
+│   └── routes/grants.ts     補助金API
+├── scripts/
+│   ├── ingest.mjs           取り込みパイプライン
+│   ├── sources/
+│   │   ├── jgrants.mjs      jGrants APIプラグイン
+│   │   └── maff.mjs         農水省スクレイパー
+│   └── lib/
+│       ├── analyzer.mjs     AI解析エンジン
+│       └── tara-profile.mjs 太良町プロファイル
+├── migrations/
+│   └── 0011_grants.sql      grants + grant_ai_analyses テーブル
+└── tmp/                     一時ファイル（分析結果JSON等）
 ```
 
-## Core API
+## デプロイ
 
-| エンドポイント | 内容 |
-|---|---|
-| `GET /api/health` | DB / KV / R2 / Env の基本チェック |
-| `GET /api/modules` | core / optional module の runtime status |
-| `GET /api/orgs` | 所属 organization 一覧と current organization |
-| `POST /api/orgs` | organization 作成 + current organization 切替 |
-| `GET /api/orgs/current/invites` | current organization の招待一覧 |
-| `POST /api/orgs/current/invites` | current organization の招待作成 |
-| `POST /api/orgs/invites/accept` | organization 招待承諾 |
-| `POST /api/auth/signup` | ユーザー登録 |
-| `POST /api/auth/login` | ログイン |
-| `POST /api/auth/logout` | ログアウト |
-| `POST /api/auth/switch-org` | current organization 切替 |
-| `POST /api/auth/password-reset/request` | password reset 開始 |
-| `POST /api/auth/password-reset/confirm` | password reset 完了 |
-| `POST /api/auth/email-verification/request` | verification mail 再送 |
-| `POST /api/auth/email-verification/confirm` | email verification 完了 |
-| `GET /api/auth/me` | 現在のユーザー取得 |
+```bash
+# リモートD1にmigration適用
+npm run db:migrate:remote
 
-## Security Invariants
+# デプロイ
+npm run deploy
 
-- session cookie は HttpOnly
-- パスワードは PBKDF2 で保存
-- write 系 API は CSRF 保護
-- auth API は rate limit 付き
-- すべてのエラーは `{ error: { code, message, requestId, details? } }`
-- 監査ログは `audit_logs` に保存
-- `X-Request-Id` をレスポンスとログに載せる
-- organization context は `memberships` と `sessions.current_org_id` で解決
-
-## Queue
-
-`JOBS` Queue binding を持ち、core と optional examples の両方で job を enqueue します。
-
-- `user.welcome`
-
-consumer は Worker module の `queue()` handler で処理します。
-
-organization invite 作成時には `organization.invite_email` job も enqueue されます。
-password reset request 時には `auth.password_reset_email` job も enqueue されます。
-signup と verification 再送時には `auth.email_verification_email` job も enqueue されます。
-`EMAIL_PROVIDER=resend`、`RESEND_API_KEY`、`EMAIL_FROM` を設定すると Resend 経由で実送信します。未設定時は `log` fallback です。
-
-## Feature Structure
-
-`tara-grant-scout` は core と feature を分けて拡張する前提です。
-
-- core routes: `src/routes/`
-- core hooks: `app/hooks/`
-- core schema: `shared/schemas/`
-- example features: なし
-
-新しい業務機能を追加する場合は、まず `core` へ入れるべき共通機能か、`example` や派生アプリ固有の feature かを分けてから配置してください。
-
-## Optional Example APIs
-
-この app は core-only 構成です。example feature API は含みません。
-
-## 本番チェックリスト
-
-- [ ] `wrangler.jsonc` の `database_id` を実値にする
-- [ ] `wrangler.jsonc` の Queue binding を実値にする
-- [ ] `CORS_ORIGIN` を本番 origin にする
-- [ ] `COOKIE_SAME_SITE` / `COOKIE_SECURE` を運用に合わせる
-- [ ] Durable Object migration tag を必要に応じて更新する
-- [ ] Queue 名を変更した場合は producer / consumer を揃える
-- [ ] auth rate limit の閾値を要件に合わせる
-- [ ] `scheduled` cleanup が本番でも動くことを確認する
+# リモートDBにデータ投入
+npm run ingest -- --remote --skip-analysis
+```

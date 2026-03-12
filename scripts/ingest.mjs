@@ -72,7 +72,7 @@ function esc(v) {
 }
 
 function execSql(sql) {
-  const result = spawnSync("wrangler", ["d1", "execute", dbName, mode, "--command", sql], {
+  const result = spawnSync("npx", ["wrangler", "d1", "execute", dbName, mode, "--command", sql], {
     stdio: "pipe",
     encoding: "utf-8",
   });
@@ -84,7 +84,7 @@ function execSql(sql) {
 }
 
 function execSqlJson(sql) {
-  const result = spawnSync("wrangler", ["d1", "execute", dbName, mode, "--command", sql, "--json"], {
+  const result = spawnSync("npx", ["wrangler", "d1", "execute", dbName, mode, "--command", sql, "--json"], {
     stdio: "pipe",
     encoding: "utf-8",
   });
@@ -155,9 +155,10 @@ for (const name of sourceNames) {
       continue;
     }
 
-    // grants テーブルに保存
+    // grants テーブルに保存（raw_textはシェル引数上限を避けるため2000文字に制限）
+    const rawText = item.raw_text ? item.raw_text.substring(0, 2000) : null;
     const insertSql = `INSERT INTO grants (title, source_ministry, source_url, published_at, deadline, raw_text, category_raw)
-       VALUES (${esc(item.title)}, ${esc(item.source_ministry)}, ${esc(item.source_url)}, ${esc(item.published_at ?? null)}, ${esc(item.deadline ?? null)}, ${esc(item.raw_text ?? null)}, ${esc(item.category_raw ?? null)})`;
+       VALUES (${esc(item.title)}, ${esc(item.source_ministry)}, ${esc(item.source_url)}, ${esc(item.published_at ?? null)}, ${esc(item.deadline ?? null)}, ${esc(rawText)}, ${esc(item.category_raw ?? null)})`;
 
     if (!execSql(insertSql)) {
       console.error(`    保存失敗: ${item.title}`);

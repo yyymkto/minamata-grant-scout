@@ -2,12 +2,10 @@ import { Hono } from "hono";
 import { desc, eq, like, and, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { grants, grantAiAnalyses } from "../db/schema";
-import { requireAuth } from "../middleware/auth";
 import type { AppContextEnv } from "../types";
 import { jsonError } from "../lib/http";
 
 const app = new Hono<AppContextEnv>()
-  .use("*", requireAuth)
   // LIST with filters
   .get("/", async (c) => {
     const db = drizzle(c.env.DB);
