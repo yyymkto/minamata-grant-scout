@@ -3,4 +3,5 @@ dist/
 .wrangler/
 .dev.vars
 .mf/
-.wrangler/
+tmp/
+.claude/

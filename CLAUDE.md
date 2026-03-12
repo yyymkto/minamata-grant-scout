@@ -2,7 +2,7 @@
 
 ## プロジェクト概要
 
-太良町（佐賀県）向けの補助金AI発見システム。jGrants API + 省庁スクレイパーで補助金情報を収集し、AIで太良町への適合度を評価する。
+太良町（佐賀県）向けの補助金AI発見システム。jGrants API で全省庁の補助金を収集し、AIで太良町への適合度を評価する。
 
 ## 技術スタック
 
@@ -35,6 +35,7 @@ npm run ingest       # 補助金データ取り込み
 `scripts/ingest.mjs` がソースプラグイン（`scripts/sources/*.mjs`）を動的ロードして実行。
 
 各プラグインは `export const label` と `export async function fetchGrants()` をエクスポートする。
+現在は `jgrants.mjs` のみ。
 
 ### jGrants API の注意点
 
@@ -55,6 +56,4 @@ npm run ingest       # 補助金データ取り込み
 ## 既知の課題
 
 - AI解析にAPIキーが未設定（`scripts/lib/analyzer.mjs`）。現状はClaude Code内のCodexに手動で投げて結果をDB投入
-- jGrantsから取得した67件中55件がまだAI解析未実施
-- `scripts/sources/e-gov.mjs` はスタブ（空配列を返す）
 - cf-starterの認証・org機能のコードは残っているが使っていない
