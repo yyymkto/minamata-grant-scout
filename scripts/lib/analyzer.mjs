@@ -1,15 +1,18 @@
 /**
- * AI Analyzer — Claude APIを使って補助金情報を解析
+ * AI Analyzer — Kimi K2.5 APIを使って補助金情報を解析
  *
- * 差し替え可能: このファイルのanalyzeGrant()を別のLLMに差し替えればOK
+ * OpenAI互換API（Moonshot AI）
+ * - thinking: disabled で Instant Mode（reasoning_contentが空になる問題を回避）
+ * - reasoning_contentフォールバック付き（保険）
  */
-import Anthropic from "@anthropic-ai/sdk";
 import { TARA_PROFILE } from "./tara-profile.mjs";
 
-const client = new Anthropic();
+const KIMI_API_KEY = process.env.KIMI_API_KEY;
+const KIMI_BASE_URL = "https://api.moonshot.ai/v1";
 
 const SYSTEM_PROMPT = `あなたは地方自治体向けの補助金アナリストです。
 与えられた補助金・公募情報を分析し、指定されたJSON形式で結果を返してください。
+必ず有効なJSONのみを出力してください（json）。
 
 ${TARA_PROFILE}
 
@@ -47,12 +50,62 @@ ${TARA_PROFILE}
 `;
 
 /**
- * 補助金情報をClaude APIで解析する
+ * ブレース対応のJSON抽出（貪欲正規表現よりも正確）
+ */
+function extractOutermostJson(text) {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  let inStr = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) {
+      if (escaped) { escaped = false; continue; }
+      if (ch === "\\") { escaped = true; continue; }
+      if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === "{") depth++;
+    if (ch === "}") { depth--; if (depth === 0) return text.slice(start, i + 1); }
+  }
+  return null;
+}
+
+/**
+ * テキストからJSONを抽出してパース
+ */
+function parseJsonFromText(text) {
+  if (!text?.trim()) return null;
+
+  // 1. ```json ... ``` ブロック
+  const codeBlock = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  if (codeBlock) {
+    try { return JSON.parse(codeBlock[1]); } catch {}
+  }
+
+  // 2. ブレース対応の最外JSONオブジェクト
+  const jsonStr = extractOutermostJson(text);
+  if (jsonStr) {
+    try { return JSON.parse(jsonStr); } catch {}
+  }
+
+  return null;
+}
+
+/**
+ * 補助金情報をKimi K2.5 APIで解析する
  * @param {object} grant - { title, source_ministry, raw_text, source_url, deadline }
  * @returns {object|null} 解析結果のJSON。失敗時はnull
  */
 export async function analyzeGrant(grant) {
-  const userMessage = `以下の補助金・公募情報を分析してください。
+  if (!KIMI_API_KEY) {
+    console.error("  [error] KIMI_API_KEY not set. Export it or add to .dev.vars");
+    return null;
+  }
+
+  const userMessage = `以下の補助金・公募情報を分析し、結果をJSONで返してください。
 
 ## タイトル
 ${grant.title}
@@ -71,26 +124,46 @@ ${grant.raw_text || "（本文なし — タイトルと省庁から推定して
 `;
 
   try {
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
+    const res = await fetch(`${KIMI_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${KIMI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "kimi-k2.5",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userMessage },
+        ],
+        max_tokens: 2000,
+        thinking: { type: "disabled" },
+      }),
     });
 
-    const text = response.content
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join("");
-
-    // JSONを抽出（コードブロック内にある場合も対応）
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error(`  [warn] No JSON found in AI response for "${grant.title}"`);
+    if (!res.ok) {
+      const err = await res.text();
+      console.error(`  [error] Kimi API ${res.status}: ${err.substring(0, 200)}`);
       return null;
     }
 
-    return JSON.parse(jsonMatch[0]);
+    const data = await res.json();
+    const message = data.choices?.[0]?.message;
+
+    // content → reasoning_content のフォールバック
+    let text = message?.content || "";
+    if (!text.trim() && message?.reasoning_content) {
+      console.log(`    [info] reasoning_contentからフォールバック`);
+      text = message.reasoning_content;
+    }
+
+    const parsed = parseJsonFromText(text);
+    if (!parsed) {
+      console.error(`  [warn] No valid JSON in response for "${grant.title}"`);
+      return null;
+    }
+
+    return parsed;
   } catch (err) {
     console.error(`  [error] AI analysis failed for "${grant.title}": ${err.message}`);
     return null;

@@ -53,7 +53,21 @@ npm run ingest       # 補助金データ取り込み
 - 基幹産業: みかん、牡蠣、林業
 - 町役場部署: 企画商工課、農林水産課、建設課、町民福祉課、教育委員会
 
+## AI解析（Kimi K2.5）
+
+- `scripts/lib/analyzer.mjs` — Moonshot AI の Kimi K2.5 (OpenAI互換API)
+- `.dev.vars` に `KIMI_API_KEY` を設定
+- `thinking: { type: "disabled" }` でInstant Mode（reasoning_contentが空になる問題を回避）
+- reasoning_contentフォールバック + ブレース対応JSONパーサーで安定抽出
+
+### コマンド
+
+```bash
+node scripts/ingest.mjs --analyze-only          # 未解析レコードのみAI解析
+node scripts/ingest.mjs --analyze-only --limit 5 # 5件だけテスト
+```
+
 ## 既知の課題
 
-- AI解析にAPIキーが未設定（`scripts/lib/analyzer.mjs`）。現状はClaude Code内のCodexに手動で投げて結果をDB投入
 - cf-starterの認証・org機能のコードは残っているが使っていない
+- DB操作がspawnSync経由のwrangler CLIで遅い（better-sqlite3直接アクセスに移行予定）
