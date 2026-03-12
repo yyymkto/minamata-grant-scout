@@ -1,0 +1,53 @@
+{
+  "name": "tara-grant-scout",
+  "version": "0.1.0",
+  "description": "Tara Grant Scout application scaffolded from cf-starter.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite dev",
+    "dev:split": "wrangler dev src/index.ts --port 8787 --local & vite dev --config vite.config.split.ts && kill %1",
+    "build": "vite build",
+    "preview": "npm run build && vite preview",
+    "deploy": "npm run build && wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "template:sync": "node scripts/internal/sync-template-directory.mjs --source-dir . --target-dir template --force",
+    "template:check": "node scripts/internal/check-template-directory.mjs --source-dir . --template-dir template",
+    "doctor": "node scripts/doctor.mjs",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node scripts/d1-migrate.mjs",
+    "db:migrate:remote": "node scripts/d1-migrate.mjs remote",
+    "seed:demo": "node scripts/seed-demo.mjs",
+    "record:generate": "node scripts/generate-record.mjs"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.5",
+    "@tanstack/react-query": "^5",
+    "drizzle-orm": "^0.43",
+    "hono": "^4",
+    "react": "^19",
+    "react-dom": "^19",
+    "wouter": "^3.9.0",
+    "zod": "^3"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1",
+    "@cloudflare/workers-types": "^4",
+    "@tailwindcss/vite": "^4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4",
+    "drizzle-kit": "^0.31",
+    "esbuild": "^0.25",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vite": "^6",
+    "vitest": "^3",
+    "wrangler": "^4"
+  },
+  "private": true
+}

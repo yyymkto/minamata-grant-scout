@@ -1,0 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --color-status-new: theme(colors.sky.400);
+  --color-status-active: theme(colors.amber.400);
+  --color-status-done: theme(colors.emerald.400);
+  --color-status-error: theme(colors.rose.400);
+  --color-status-hold: theme(colors.slate.400);
+}
+
+body {
+  font-family: 'Inter', 'Noto Sans JP', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
