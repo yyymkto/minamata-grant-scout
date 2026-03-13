@@ -6,6 +6,7 @@ export interface Env {
   CORS_ORIGIN?: string;
   APP_BASE_URL?: string;
   KIMI_API_KEY: string;
+  OPENAI_API_KEY?: string;
   ADMIN_SECRET: string;
 }
 

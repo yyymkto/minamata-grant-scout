@@ -87,9 +87,110 @@ export interface AnalysisResult {
   tara_categories: string[] | string;
 }
 
+interface LlmProvider {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  thinkingParam?: Record<string, unknown>;
+}
+
+async function callLlm(
+  provider: LlmProvider,
+  systemPrompt: string,
+  userMessage: string,
+  grant: GrantForAnalysis
+): Promise<AnalysisResult | null> {
+  const MAX_RETRIES = 2;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const body: Record<string, unknown> = {
+        model: provider.model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ],
+        max_tokens: 2000,
+      };
+      if (provider.thinkingParam) {
+        body.thinking = provider.thinkingParam;
+      }
+
+      const res = await fetch(`${provider.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${provider.apiKey}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (res.status === 429 || res.status >= 500) {
+        const waitMs = Math.min(1000 * 2 ** attempt, 8000);
+        logEvent("warn", "analyzer.retry", {
+          provider: provider.model,
+          status: res.status,
+          attempt,
+          waitMs,
+          title: grant.title,
+        });
+        if (attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, waitMs));
+          continue;
+        }
+      }
+
+      if (!res.ok) {
+        const err = await res.text();
+        logEvent("error", "analyzer.api_error", {
+          provider: provider.model,
+          status: res.status,
+          body: err.substring(0, 200),
+          title: grant.title,
+        });
+        return null;
+      }
+
+      const data = (await res.json()) as {
+        choices?: { message?: { content?: string; reasoning_content?: string } }[];
+      };
+      const message = data.choices?.[0]?.message;
+
+      let text = message?.content || "";
+      if (!text.trim() && message?.reasoning_content) {
+        logEvent("info", "analyzer.reasoning_fallback", { title: grant.title });
+        text = message.reasoning_content;
+      }
+
+      const parsed = parseJsonFromText(text);
+      if (!parsed) {
+        logEvent("warn", "analyzer.no_json", { provider: provider.model, title: grant.title });
+        return null;
+      }
+
+      return parsed as unknown as AnalysisResult;
+    } catch (err) {
+      logEvent("error", "analyzer.exception", {
+        provider: provider.model,
+        title: grant.title,
+        attempt,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      if (attempt < MAX_RETRIES) {
+        await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+        continue;
+      }
+      return null;
+    }
+  }
+
+  return null;
+}
+
 export async function analyzeGrant(
   grant: GrantForAnalysis,
-  apiKey: string
+  apiKey: string,
+  openaiApiKey?: string
 ): Promise<AnalysisResult | null> {
   const userMessage = `以下の補助金・公募情報を分析し、結果をJSONで返してください。
 
@@ -109,82 +210,34 @@ ${grant.source_url}
 ${grant.raw_text || "（本文なし — タイトルと省庁から推定してください）"}
 `;
 
-  const MAX_RETRIES = 2;
+  // Primary: Kimi K2.5
+  const kimiResult = await callLlm(
+    {
+      baseUrl: KIMI_BASE_URL,
+      apiKey,
+      model: "kimi-k2.5",
+      thinkingParam: { type: "disabled" },
+    },
+    SYSTEM_PROMPT,
+    userMessage,
+    grant
+  );
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-    const res = await fetch(`${KIMI_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+  if (kimiResult) return kimiResult;
+
+  // Fallback: GPT-4o-mini
+  if (openaiApiKey) {
+    logEvent("info", "analyzer.fallback_to_openai", { title: grant.title });
+    return callLlm(
+      {
+        baseUrl: "https://api.openai.com/v1",
+        apiKey: openaiApiKey,
+        model: "gpt-4o-mini",
       },
-      body: JSON.stringify({
-        model: "kimi-k2.5",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-        max_tokens: 2000,
-        thinking: { type: "disabled" },
-      }),
-    });
-
-    // 429/5xx はリトライ
-    if (res.status === 429 || res.status >= 500) {
-      const waitMs = Math.min(1000 * 2 ** attempt, 8000);
-      logEvent("warn", "analyzer.retry", {
-        status: res.status,
-        attempt,
-        waitMs,
-        title: grant.title,
-      });
-      if (attempt < MAX_RETRIES) {
-        await new Promise((r) => setTimeout(r, waitMs));
-        continue;
-      }
-    }
-
-    if (!res.ok) {
-      const err = await res.text();
-      logEvent("error", "analyzer.api_error", {
-        status: res.status,
-        body: err.substring(0, 200),
-        title: grant.title,
-      });
-      return null;
-    }
-
-    const data = (await res.json()) as {
-      choices?: { message?: { content?: string; reasoning_content?: string } }[];
-    };
-    const message = data.choices?.[0]?.message;
-
-    let text = message?.content || "";
-    if (!text.trim() && message?.reasoning_content) {
-      logEvent("info", "analyzer.reasoning_fallback", { title: grant.title });
-      text = message.reasoning_content;
-    }
-
-    const parsed = parseJsonFromText(text);
-    if (!parsed) {
-      logEvent("warn", "analyzer.no_json", { title: grant.title });
-      return null;
-    }
-
-    return parsed as unknown as AnalysisResult;
-    } catch (err) {
-      logEvent("error", "analyzer.exception", {
-        title: grant.title,
-        attempt,
-        message: err instanceof Error ? err.message : String(err),
-      });
-      if (attempt < MAX_RETRIES) {
-        await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
-        continue;
-      }
-      return null;
-    }
+      SYSTEM_PROMPT,
+      userMessage,
+      grant
+    );
   }
 
   return null;
