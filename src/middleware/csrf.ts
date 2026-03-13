@@ -21,6 +21,12 @@ export const csrfProtection = createMiddleware<AppContextEnv>(async (c, next) =>
     return;
   }
 
+  // Admin secret 認証のリクエストはCSRF免除（M2M通信用）
+  if (c.req.header("x-admin-secret")) {
+    await next();
+    return;
+  }
+
   // Validate Origin/Referer for ALL mutating requests, not just those
   // with a session cookie. This prevents login CSRF attacks where an
   // attacker forces a victim to authenticate as the attacker's account.

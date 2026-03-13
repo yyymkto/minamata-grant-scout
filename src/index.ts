@@ -42,7 +42,7 @@ export const app = new Hono<AppContextEnv>()
       },
       credentials: true,
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowHeaders: ["Content-Type", "Authorization"],
+      allowHeaders: ["Content-Type", "Authorization", "x-admin-secret"],
     })
   )
   .use("/api/*", csrfProtection)

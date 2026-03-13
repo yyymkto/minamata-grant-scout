@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { desc, eq, like, and, or, count, max } from "drizzle-orm";
+import { desc, eq, and, or, ne, gte, like, count, max, sql, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { grants, grantAiAnalyses } from "../db/schema";
 import type { AppContextEnv } from "../types";
@@ -7,15 +7,62 @@ import { jsonError } from "../lib/http";
 import { ingestGrantList } from "../features/grants/ingest";
 
 const app = new Hono<AppContextEnv>()
-  // LIST with filters
+  // LIST with SQL-level filters
   .get("/", async (c) => {
     const db = drizzle(c.env.DB);
     const rank = c.req.query("rank");
-    const ministry = c.req.query("ministry");
-    const department = c.req.query("department");
     const category = c.req.query("category");
     const q = c.req.query("q");
     const includeEnded = c.req.query("include_ended");
+    const limitParam = c.req.query("limit");
+    const offsetParam = c.req.query("offset");
+
+    const limit = Math.min(Number(limitParam) || 200, 500);
+    const offset = Number(offsetParam) || 0;
+
+    // Build WHERE conditions
+    const conditions = [];
+
+    // Rank filter (default: exclude C)
+    if (rank) {
+      conditions.push(eq(grantAiAnalyses.taraFitRank, rank));
+    } else {
+      conditions.push(
+        or(ne(grantAiAnalyses.taraFitRank, "C"), isNull(grantAiAnalyses.taraFitRank))!
+      );
+    }
+
+    // Deadline filter
+    const today = new Date().toISOString().slice(0, 10);
+    if (includeEnded === "true") {
+      const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      conditions.push(or(isNull(grants.deadline), gte(grants.deadline, cutoff))!);
+    } else {
+      conditions.push(or(isNull(grants.deadline), gte(grants.deadline, today))!);
+    }
+
+    // Category filter (comma-separated field, use LIKE)
+    if (category) {
+      conditions.push(
+        or(
+          like(grantAiAnalyses.taraCategories, `${category},%`),
+          like(grantAiAnalyses.taraCategories, `%,${category},%`),
+          like(grantAiAnalyses.taraCategories, `%,${category}`),
+          eq(grantAiAnalyses.taraCategories, category)
+        )!
+      );
+    }
+
+    // Keyword search
+    if (q) {
+      const pattern = `%${q}%`;
+      conditions.push(
+        or(
+          like(grants.title, pattern),
+          like(grantAiAnalyses.summaryShort, pattern)
+        )!
+      );
+    }
 
     const rows = await db
       .select({
@@ -36,49 +83,18 @@ const app = new Hono<AppContextEnv>()
       })
       .from(grants)
       .leftJoin(grantAiAnalyses, eq(grants.id, grantAiAnalyses.grantId))
-      .orderBy(desc(grants.deadline));
+      .where(and(...conditions))
+      .orderBy(desc(grants.deadline))
+      .limit(limit)
+      .offset(offset);
 
-    let filtered = rows;
-
-    if (rank) {
-      filtered = filtered.filter((r) => r.taraFitRank === rank);
-    } else {
-      // デフォルトでCランクを除外（rank=C で明示指定すれば取得可能）
-      filtered = filtered.filter((r) => r.taraFitRank !== "C");
-    }
-    if (ministry) {
-      filtered = filtered.filter((r) => r.sourceMinistry === ministry);
-    }
-    if (category) {
-      filtered = filtered.filter((r) => r.taraCategories?.split(",").includes(category));
-    }
-    if (department) {
-      filtered = filtered.filter((r) => r.suggestedDepartment?.includes(department));
-    }
-    if (q) {
-      const lower = q.toLowerCase();
-      filtered = filtered.filter(
-        (r) =>
-          r.title.toLowerCase().includes(lower) ||
-          r.summaryShort?.toLowerCase().includes(lower)
-      );
-    }
-    // デフォルトで締切済みを除外。include_ended=true で過去90日分を表示
-    const today = new Date().toISOString().slice(0, 10);
-    if (includeEnded === "true") {
-      const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      filtered = filtered.filter((r) => !r.deadline || r.deadline >= cutoff);
-    } else {
-      filtered = filtered.filter((r) => !r.deadline || r.deadline >= today);
-    }
-
-    return c.json(filtered);
+    return c.json(rows);
   })
   // ステータス（最終更新日時・件数）
   .get("/status", async (c) => {
     const db = drizzle(c.env.DB);
     const [grantStats] = await db
-      .select({ total: count(), lastUpdated: max(grants.createdAt) })
+      .select({ total: count(), lastUpdated: max(grants.updatedAt) })
       .from(grants);
     const [analysisStats] = await db
       .select({ total: count() })

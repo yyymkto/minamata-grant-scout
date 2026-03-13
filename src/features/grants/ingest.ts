@@ -1,14 +1,14 @@
 /**
  * Ingest オーケストレータ — cron/手動トリガーから呼ばれる
  *
- * 1. jGrants APIから一覧取得 → D1に新規保存
+ * 1. jGrants APIから一覧取得 → D1に新規保存（ON CONFLICT対応）
  * 2. 新規分をQueue投入（詳細取得→AI解析）
  */
 import { drizzle } from "drizzle-orm/d1";
-import { eq } from "drizzle-orm";
+import { eq, sql, isNull } from "drizzle-orm";
 import { grants, grantAiAnalyses } from "../../db/schema";
 import { fetchGrantList, enrichGrantDetail, type RawGrant } from "./jgrants-source";
-import { analyzeGrant, type AnalysisResult } from "./analyzer";
+import { analyzeGrant } from "./analyzer";
 import { logEvent } from "../../lib/logging";
 import type { Env } from "../../types";
 
@@ -22,42 +22,41 @@ export async function ingestGrantList(env: Env): Promise<{
   const db = drizzle(env.DB);
   const rawGrants = await fetchGrantList();
 
+  if (rawGrants.length === 0) {
+    logEvent("warn", "ingest.empty_result", {
+      message: "jGrants API returned 0 grants — possible upstream outage",
+    });
+    return { total: 0, newCount: 0, skipped: 0, queued: 0 };
+  }
+
   let newCount = 0;
   let skipped = 0;
   let queued = 0;
 
-  for (const g of rawGrants) {
-    // 重複チェック
-    const [existing] = await db
-      .select({ id: grants.id })
-      .from(grants)
-      .where(eq(grants.sourceUrl, g.source_url));
+  // Queue messages をバッチ送信用に収集
+  const queueMessages: { type: string; payload: Record<string, unknown> }[] = [];
 
-    if (existing) {
+  for (const g of rawGrants) {
+    // INSERT ... ON CONFLICT DO NOTHING でアトミックに重複チェック
+    const result = await db.run(
+      sql`INSERT INTO grants (title, source_ministry, source_url, published_at, deadline, raw_text, category_raw)
+          VALUES (${g.title}, ${g.source_ministry}, ${g.source_url}, ${g.published_at}, ${g.deadline}, NULL, ${g.category_raw})
+          ON CONFLICT (source_url) DO NOTHING`
+    );
+
+    if (!result.meta.changes || result.meta.changes === 0) {
       skipped++;
       continue;
     }
 
-    // D1に保存
-    await db.insert(grants).values({
-      title: g.title,
-      sourceMinistry: g.source_ministry,
-      sourceUrl: g.source_url,
-      publishedAt: g.published_at,
-      deadline: g.deadline,
-      rawText: null, // 詳細取得後にQueue consumerが埋める
-      categoryRaw: g.category_raw,
-    });
-
-    // 保存したIDを取得
+    // 挿入されたIDを取得
     const [inserted] = await db
       .select({ id: grants.id })
       .from(grants)
       .where(eq(grants.sourceUrl, g.source_url));
 
     if (inserted) {
-      // Queue投入: まず詳細取得
-      await env.JOBS.send({
+      queueMessages.push({
         type: "grant.fetch_detail",
         payload: { grantId: inserted.id, jgrantsId: g.jgrants_id },
       });
@@ -65,6 +64,19 @@ export async function ingestGrantList(env: Env): Promise<{
     }
 
     newCount++;
+  }
+
+  // Queue バッチ送信
+  if (queueMessages.length > 0) {
+    const batches = [];
+    for (let i = 0; i < queueMessages.length; i += 100) {
+      batches.push(queueMessages.slice(i, i + 100));
+    }
+    for (const batch of batches) {
+      await env.JOBS.sendBatch(
+        batch.map((msg) => ({ body: msg }))
+      );
+    }
   }
 
   logEvent("info", "ingest.complete", {
@@ -106,6 +118,12 @@ export async function handleFetchDetail(
   };
 
   await enrichGrantDetail(rawGrant);
+
+  // 詳細取得できなかった場合はthrowしてretryさせる
+  if (!rawGrant.raw_text && !grant.rawText) {
+    logEvent("warn", "job.fetch_detail.no_text", { grantId: payload.grantId });
+    throw new Error(`Detail fetch failed for grant ${payload.grantId} — will retry`);
+  }
 
   // D1を更新
   await db

@@ -109,7 +109,10 @@ ${grant.source_url}
 ${grant.raw_text || "（本文なし — タイトルと省庁から推定してください）"}
 `;
 
-  try {
+  const MAX_RETRIES = 2;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
     const res = await fetch(`${KIMI_BASE_URL}/chat/completions`, {
       method: "POST",
       headers: {
@@ -126,6 +129,21 @@ ${grant.raw_text || "（本文なし — タイトルと省庁から推定して
         thinking: { type: "disabled" },
       }),
     });
+
+    // 429/5xx はリトライ
+    if (res.status === 429 || res.status >= 500) {
+      const waitMs = Math.min(1000 * 2 ** attempt, 8000);
+      logEvent("warn", "analyzer.retry", {
+        status: res.status,
+        attempt,
+        waitMs,
+        title: grant.title,
+      });
+      if (attempt < MAX_RETRIES) {
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+    }
 
     if (!res.ok) {
       const err = await res.text();
@@ -155,11 +173,19 @@ ${grant.raw_text || "（本文なし — タイトルと省庁から推定して
     }
 
     return parsed as unknown as AnalysisResult;
-  } catch (err) {
-    logEvent("error", "analyzer.exception", {
-      title: grant.title,
-      message: err instanceof Error ? err.message : String(err),
-    });
-    return null;
+    } catch (err) {
+      logEvent("error", "analyzer.exception", {
+        title: grant.title,
+        attempt,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      if (attempt < MAX_RETRIES) {
+        await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+        continue;
+      }
+      return null;
+    }
   }
+
+  return null;
 }
