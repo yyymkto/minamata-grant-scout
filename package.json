@@ -1,7 +1,7 @@
 {
   "name": "tara-grant-scout",
-  "version": "0.1.0",
-  "description": "Tara Grant Scout application scaffolded from cf-starter.",
+  "version": "1.0.0",
+  "description": "太良町向け補助金AIスカウトシステム — jGrants API + Kimi K2.5 + Cloudflare Workers",
   "license": "UNLICENSED",
   "type": "module",
   "engines": {
@@ -9,25 +9,17 @@
   },
   "scripts": {
     "dev": "vite dev",
-    "dev:split": "wrangler dev src/index.ts --port 8787 --local & vite dev --config vite.config.split.ts && kill %1",
     "build": "vite build",
     "preview": "npm run build && vite preview",
     "deploy": "npm run build && wrangler deploy",
     "test": "vitest run",
     "test:watch": "vitest",
-    "template:sync": "node scripts/internal/sync-template-directory.mjs --source-dir . --target-dir template --force",
-    "template:check": "node scripts/internal/check-template-directory.mjs --source-dir . --template-dir template",
-    "doctor": "node scripts/doctor.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/d1-migrate.mjs",
     "db:migrate:remote": "node scripts/d1-migrate.mjs remote",
-    "seed:demo": "node scripts/seed-demo.mjs",
-    "seed:grants": "node scripts/seed-grants.mjs",
-    "ingest": "node scripts/ingest.mjs",
-    "record:generate": "node scripts/generate-record.mjs"
+    "ingest": "node scripts/ingest.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.78.0",
     "@hono/zod-validator": "^0.5",
     "@tanstack/react-query": "^5",
     "drizzle-orm": "^0.43",
