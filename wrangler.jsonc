@@ -11,52 +11,16 @@
       "migrations_dir": "./migrations"
     }
   ],
-  // KV — uncomment if needed. Remove KV from src/types.ts Env if not used.
+  // KV — uncomment if needed.
   // "kv_namespaces": [
   //   {
   //     "binding": "KV",
   //     "id": "TODO"
   //   }
   // ],
-  "durable_objects": {
-    "bindings": [
-      {
-        "name": "RATE_LIMITER",
-        "class_name": "RateLimiter"
-      }
-    ]
-  },
-  "queues": {
-    "producers": [
-      {
-        "binding": "JOBS",
-        "queue": "tara-grant-scout-jobs"
-      }
-    ],
-    "consumers": [
-      {
-        "queue": "tara-grant-scout-jobs",
-        "max_batch_size": 10,
-        "max_batch_timeout": 5
-      }
-    ]
-  },
-  "migrations": [
-    {
-      "tag": "v1",
-      "new_sqlite_classes": ["RateLimiter"]
-    }
-  ],
   "vars": {
     "CORS_ORIGIN": "http://localhost:5173",
-    "COOKIE_SAME_SITE": "Lax",
-    "COOKIE_SECURE": "true",
-    "APP_BASE_URL": "http://localhost:5173",
-    "EMAIL_PROVIDER": "log",
-    "EMAIL_FROM": "tara-grant-scout <noreply@example.com>"
-  },
-  "triggers": {
-    "crons": ["*/15 * * * *"]
+    "APP_BASE_URL": "http://localhost:5173"
   },
   // Static assets (React SPA)
   "assets": {

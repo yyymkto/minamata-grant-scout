@@ -8,15 +8,11 @@ describe("config", () => {
     const config = getAppConfig(
       createTestEnv({
         CORS_ORIGIN: "https://app.example.com, http://localhost:5173",
-        COOKIE_SAME_SITE: "strict",
-        COOKIE_SECURE: "false",
       })
     );
 
     expect(config).toEqual({
       corsOrigins: ["https://app.example.com", "http://localhost:5173"],
-      cookieSameSite: "Strict",
-      cookieSecure: false,
       appBaseUrl: "http://localhost:5173",
     });
   });

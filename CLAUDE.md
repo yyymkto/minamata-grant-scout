@@ -7,7 +7,7 @@
 ## 技術スタック
 
 - cf-starter テンプレートベース（React + Hono + D1 + Drizzle）
-- 認証は無効化済み（`grants.ts`の`requireAuth`を削除、`App.tsx`の`AuthGuard`を削除）
+- 認証・org・RBAC関連コードは全て削除済み（core-only構成）
 - フロントエンドは認証なしで直接アクセス可能
 
 ## 開発コマンド
@@ -69,5 +69,4 @@ node scripts/ingest.mjs --analyze-only --limit 5 # 5件だけテスト
 
 ## 既知の課題
 
-- cf-starterの認証・org機能のコードは残っているが使っていない
 - DB操作がspawnSync経由のwrangler CLIで遅い（better-sqlite3直接アクセスに移行予定）

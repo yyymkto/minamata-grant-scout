@@ -36,26 +36,12 @@ const originSchema = z.string().transform((value, ctx) => {
 
 const configSchema = z.object({
   corsOrigins: z.array(originSchema).min(1),
-  cookieSameSite: z.enum(["Lax", "Strict", "None"]),
-  cookieSecure: z.boolean(),
   appBaseUrl: originSchema.optional(),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;
 
 const configCache = new WeakMap<Env, AppConfig>();
-
-function normalizeSameSite(raw?: string): "Lax" | "Strict" | "None" {
-  if (!raw) return "Lax";
-  const normalized = raw[0].toUpperCase() + raw.slice(1).toLowerCase();
-  return normalized === "Strict" || normalized === "None" ? normalized : "Lax";
-}
-
-function resolveCookieSecure(raw: string | undefined, sameSite: string): boolean {
-  if (sameSite === "None") return true;
-  if (raw === undefined) return true;
-  return raw.toLowerCase() !== "false";
-}
 
 function splitOrigins(raw?: string): string[] {
   if (!raw) return DEFAULT_CORS_ORIGINS;
@@ -70,11 +56,8 @@ export function getAppConfig(env: Env): AppConfig {
   const cached = configCache.get(env);
   if (cached) return cached;
 
-  const sameSite = normalizeSameSite(env.COOKIE_SAME_SITE);
   const parsed = configSchema.parse({
     corsOrigins: splitOrigins(env.CORS_ORIGIN),
-    cookieSameSite: sameSite,
-    cookieSecure: resolveCookieSecure(env.COOKIE_SECURE, sameSite),
     appBaseUrl: env.APP_BASE_URL?.trim() || undefined,
   });
 

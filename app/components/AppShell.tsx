@@ -1,6 +1,4 @@
 import { Link, useLocation } from "wouter";
-import { useSession, useLogout } from "~/hooks/useSession";
-import { useHealth } from "~/hooks/useHealth";
 
 export function AppShell({
   children,
@@ -9,9 +7,6 @@ export function AppShell({
   children: React.ReactNode;
   navItems?: { label: string; href: string }[];
 }) {
-  const { data: session } = useSession();
-  const { data: health } = useHealth();
-  const logout = useLogout();
   const [location] = useLocation();
 
   return (
@@ -23,65 +18,23 @@ export function AppShell({
               href="/"
               className="text-lg font-semibold tracking-tight text-white"
             >
-              cf-starter
+              補助金スカウト
             </Link>
-            {session ? (
-              <nav className="flex gap-1 overflow-x-auto">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                      (item.href === "/" ? location === "/" : location.startsWith(item.href))
-                        ? "bg-amber-400/15 text-amber-200"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+            <nav className="flex gap-1 overflow-x-auto">
+              {navItems.map((item) => (
                 <Link
-                  href="/settings"
+                  key={item.href}
+                  href={item.href}
                   className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                    location === "/settings"
+                    (item.href === "/" ? location === "/" : location.startsWith(item.href))
                       ? "bg-amber-400/15 text-amber-200"
                       : "text-slate-400 hover:text-white"
                   }`}
                 >
-                  Settings
+                  {item.label}
                 </Link>
-              </nav>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-4">
-            {health?.checks ? (
-              <div className="flex gap-2">
-                {Object.entries(health.checks).map(([k, v]) => (
-                  <span
-                    key={k}
-                    className={`rounded-full px-2 py-0.5 text-xs font-mono ${
-                      v === "ok"
-                        ? "bg-emerald-400/15 text-emerald-200"
-                        : "bg-rose-400/15 text-rose-200"
-                    }`}
-                  >
-                    {k}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            {session ? (
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-slate-300">{session.name}</span>
-                <button
-                  type="button"
-                  onClick={() => logout.mutate()}
-                  className="rounded-full bg-white/5 px-3 py-1.5 text-xs text-slate-400 hover:text-white"
-                >
-                  Logout
-                </button>
-              </div>
-            ) : null}
+              ))}
+            </nav>
           </div>
         </div>
       </header>
