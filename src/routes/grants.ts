@@ -1,9 +1,10 @@
 import { Hono } from "hono";
-import { desc, eq, like, and, or } from "drizzle-orm";
+import { desc, eq, like, and, or, count, max } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { grants, grantAiAnalyses } from "../db/schema";
 import type { AppContextEnv } from "../types";
 import { jsonError } from "../lib/http";
+import { ingestGrantList } from "../features/grants/ingest";
 
 const app = new Hono<AppContextEnv>()
   // LIST with filters
@@ -73,6 +74,22 @@ const app = new Hono<AppContextEnv>()
 
     return c.json(filtered);
   })
+  // ステータス（最終更新日時・件数）
+  .get("/status", async (c) => {
+    const db = drizzle(c.env.DB);
+    const [grantStats] = await db
+      .select({ total: count(), lastUpdated: max(grants.createdAt) })
+      .from(grants);
+    const [analysisStats] = await db
+      .select({ total: count() })
+      .from(grantAiAnalyses);
+
+    return c.json({
+      grants: grantStats?.total ?? 0,
+      analyzed: analysisStats?.total ?? 0,
+      lastUpdated: grantStats?.lastUpdated ?? null,
+    });
+  })
   // GET ONE with full analysis
   .get("/:id", async (c) => {
     const db = drizzle(c.env.DB);
@@ -93,6 +110,16 @@ const app = new Hono<AppContextEnv>()
       .where(eq(grantAiAnalyses.grantId, id));
 
     return c.json({ ...grant, analysis: analysis ?? null });
+  })
+  // 手動ingestトリガー（ADMIN_SECRET必須）
+  .post("/ingest", async (c) => {
+    const secret = c.req.header("x-admin-secret");
+    if (!c.env.ADMIN_SECRET || secret !== c.env.ADMIN_SECRET) {
+      return jsonError(c, 401, "unauthorized", "Invalid admin secret");
+    }
+
+    const result = await ingestGrantList(c.env);
+    return c.json(result);
   });
 
 export default app;

@@ -83,6 +83,24 @@ export function useGrants(filters: {
   });
 }
 
+export type GrantStatus = {
+  grants: number;
+  analyzed: number;
+  lastUpdated: string | null;
+};
+
+export function useGrantStatus() {
+  return useQuery({
+    queryKey: [...GRANTS_KEY, "status"],
+    queryFn: async () => {
+      const res = await fetch("/api/grants/status", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch status");
+      return (await res.json()) as GrantStatus;
+    },
+    staleTime: 60_000,
+  });
+}
+
 export function useGrant(id: number) {
   return useQuery({
     queryKey: [...GRANTS_KEY, id],

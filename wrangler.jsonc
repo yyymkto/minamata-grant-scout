@@ -7,17 +7,31 @@
     {
       "binding": "DB",
       "database_name": "tara-grant-scout-db",
-      "database_id": "TODO",
+      "database_id": "c8ba9253-bbc0-43fc-a8f3-abf9437c2881",
       "migrations_dir": "./migrations"
     }
   ],
-  // KV — uncomment if needed.
-  // "kv_namespaces": [
-  //   {
-  //     "binding": "KV",
-  //     "id": "TODO"
-  //   }
-  // ],
+  // Cron Triggers — 毎日21:00 UTC (= JST 06:00) に補助金一覧取得
+  "triggers": {
+    "crons": ["0 21 * * *"]
+  },
+  // Queue — 詳細取得・AI解析ジョブ
+  "queues": {
+    "producers": [
+      {
+        "binding": "JOBS",
+        "queue": "tara-grant-scout-jobs"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "tara-grant-scout-jobs",
+        "max_batch_size": 5,
+        "max_batch_timeout": 30,
+        "max_retries": 3
+      }
+    ]
+  },
   "vars": {
     "CORS_ORIGIN": "http://localhost:5173",
     "APP_BASE_URL": "http://localhost:5173"

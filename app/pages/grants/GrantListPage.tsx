@@ -106,8 +106,8 @@ export function GrantListPage() {
         <h1 className="text-2xl font-bold text-gray-900">
           補助金スカウト <span className="text-lg font-normal text-gray-400">@太良</span> <span className="text-base font-normal text-gray-400">— </span><span className="text-indigo-600">{grants.length}</span><span className="text-base font-normal text-gray-400">件</span>
         </h1>
-        <p className="text-xs text-gray-400">
-          AIが太良町との相性を判定
+        <p className="text-sm text-gray-500">
+          全省庁の補助金からAIが太良町に使えそうなものを自動ピックアップ
         </p>
       </div>
 
@@ -218,24 +218,10 @@ export function GrantListPage() {
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
                       <span className="font-medium">{g.sourceMinistry}</span>
-                      {g.taraFitScore != null && (
-                        <>
-                          <span className="text-gray-300">·</span>
-                          <span className="tabular-nums font-semibold text-gray-700">{g.taraFitScore}点</span>
-                        </>
-                      )}
                       {g.maxAmount && (
                         <>
                           <span className="text-gray-300">·</span>
                           <span className="font-semibold text-emerald-700">{g.maxAmount}</span>
-                        </>
-                      )}
-                      {dl.text !== "未定" && (
-                        <>
-                          <span className="text-gray-300">·</span>
-                          <span className={dl.ended ? "text-gray-400 line-through" : dl.urgent ? "font-semibold text-red-600" : "text-gray-600"}>
-                            {dl.ended ? "終了" : dl.days != null && dl.days <= 30 ? `残${dl.days}日` : `〜${dl.text}`}
-                          </span>
                         </>
                       )}
                     </div>
@@ -246,10 +232,17 @@ export function GrantListPage() {
                     )}
                   </div>
 
-                  {/* Arrow */}
-                  <span className="hidden shrink-0 text-gray-300 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-indigo-500 sm:block" aria-hidden="true">
-                    ›
-                  </span>
+                  {/* Score & Deadline — right side */}
+                  <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
+                    {g.taraFitScore != null && (
+                      <span className="tabular-nums font-bold text-gray-800">{g.taraFitScore}<span className="font-normal text-gray-500">点</span></span>
+                    )}
+                    {dl.text !== "未定" && (
+                      <span className={dl.ended ? "text-gray-400 line-through" : dl.urgent ? "font-semibold text-red-600" : "text-gray-500"}>
+                        {dl.ended ? "終了" : dl.days != null && dl.days <= 30 ? `残${dl.days}日` : `〜${dl.text}`}
+                      </span>
+                    )}
+                  </div>
                 </Link>
               );
             })}
