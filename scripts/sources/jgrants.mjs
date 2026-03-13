@@ -69,6 +69,25 @@ async function fetchDetail(id) {
 }
 
 /**
+ * detail HTMLから省庁名を抽出
+ */
+const KNOWN_MINISTRIES = [
+  "内閣府", "内閣官房", "デジタル庁", "総務省", "法務省", "外務省", "財務省",
+  "文部科学省", "厚生労働省", "農林水産省", "経済産業省", "国土交通省", "環境省",
+  "防衛省", "復興庁", "観光庁", "林野庁", "水産庁", "中小企業庁",
+  "資源エネルギー庁", "特許庁", "消防庁", "文化庁", "スポーツ庁", "こども家庭庁",
+];
+
+function extractMinistry(detail) {
+  if (!detail) return null;
+  const text = (detail.detail || "") + " " + (detail.title || "");
+  for (const m of KNOWN_MINISTRIES) {
+    if (text.includes(m)) return m;
+  }
+  return null;
+}
+
+/**
  * HTMLタグを除去してプレーンテキストに
  */
 function stripHtml(html) {
@@ -118,7 +137,7 @@ export async function fetchGrants() {
 
         grants.push({
           title: item.title,
-          source_ministry: "jGrants", // 省庁は詳細取得時に判明
+          source_ministry: "その他", // 詳細取得時に省庁名で上書き
           source_url: sourceUrl,
           published_at: publishedAt,
           deadline,
@@ -145,9 +164,10 @@ export async function fetchGrants() {
     const detail = await fetchDetail(g._jgrants_id);
     if (detail) {
       g.raw_text = stripHtml(detail.detail)?.substring(0, 5000) || null;
-      // 省庁情報があれば上書き
-      if (detail.subsidy_catch_phrase) {
-        g.title = `${g.title}（${detail.subsidy_catch_phrase}）`.substring(0, 200);
+      // 省庁名を抽出
+      const ministry = extractMinistry(detail);
+      if (ministry) {
+        g.source_ministry = ministry;
       }
     }
     // レート制限を意識して少し待つ

@@ -10,6 +10,7 @@
  *   node scripts/ingest.mjs --dry-run               # DB書き込みなし
  *   node scripts/ingest.mjs --skip-analysis          # AI解析スキップ
  *   node scripts/ingest.mjs --analyze-only           # 未解析レコードのみAI解析
+ *   node scripts/ingest.mjs --reanalyze              # 全レコードを再AI解析（既存結果を上書き）
  */
 
 import { spawnSync } from "node:child_process";
@@ -50,6 +51,7 @@ const { values } = parseArgs({
     "dry-run": { type: "boolean" },
     "skip-analysis": { type: "boolean" },
     "analyze-only": { type: "boolean" },
+    "reanalyze": { type: "boolean" },
   },
 });
 
@@ -57,6 +59,7 @@ const mode = values.remote ? "--remote" : "--local";
 const dryRun = values["dry-run"] ?? false;
 const skipAnalysis = values["skip-analysis"] ?? false;
 const analyzeOnly = values["analyze-only"] ?? false;
+const reanalyze = values["reanalyze"] ?? false;
 const sourceFilter = values.source;
 const limit = values.limit ? Number(values.limit) : Infinity;
 
@@ -122,6 +125,58 @@ let totalSkipped = 0;
 let totalAnalyzed = 0;
 let totalAnalysisFailed = 0;
 
+// ── reanalyze モード ──────────────────────────
+if (reanalyze) {
+  console.log("\n── reanalyze モード: 全レコードを再AI解析 ──");
+
+  const limitClause = limit === Infinity ? "" : ` LIMIT ${limit}`;
+  const rows = execSqlJson(
+    `SELECT g.id, g.title, g.source_ministry, g.source_url, g.deadline, g.raw_text FROM grants g ORDER BY g.created_at DESC${limitClause}`
+  );
+
+  const grants = rows?.[0]?.results ?? [];
+  console.log(`  対象: ${grants.length}件\n`);
+
+  for (const grant of grants) {
+    console.log(`  → ${grant.title.substring(0, 60)}...`);
+    console.log(`    AI解析中...`);
+
+    try {
+      const analysis = await analyzeGrant({
+        title: grant.title,
+        source_ministry: grant.source_ministry,
+        source_url: grant.source_url,
+        deadline: grant.deadline,
+        raw_text: grant.raw_text,
+      });
+
+      if (analysis) {
+        // 既存の解析結果を削除
+        execSql(`DELETE FROM grant_ai_analyses WHERE grant_id = ${grant.id}`);
+
+        const analysisSql = `INSERT INTO grant_ai_analyses (grant_id, summary_short, support_type, target_entities, max_amount, subsidy_rate, eligible_themes, required_documents, notes, ai_confidence, tara_fit_rank, tara_fit_score, tara_fit_reason, suggested_department, suggested_department_reason, tara_use_case, tara_categories)
+           VALUES (${grant.id}, ${esc(analysis.summary_short)}, ${esc(analysis.support_type)}, ${esc(analysis.target_entities)}, ${esc(analysis.max_amount)}, ${esc(analysis.subsidy_rate)}, ${esc(analysis.eligible_themes)}, ${esc(analysis.required_documents)}, ${esc(analysis.notes)}, ${analysis.ai_confidence ?? "NULL"}, ${esc(analysis.tara_fit_rank)}, ${analysis.tara_fit_score ?? "NULL"}, ${esc(analysis.tara_fit_reason)}, ${esc(analysis.suggested_department)}, ${esc(analysis.suggested_department_reason)}, ${esc(analysis.tara_use_case)}, ${esc(Array.isArray(analysis.tara_categories) ? analysis.tara_categories.join(",") : analysis.tara_categories ?? null)})`;
+
+        if (execSql(analysisSql)) {
+          totalAnalyzed++;
+          console.log(`    ✓ ランク${analysis.tara_fit_rank} (${analysis.tara_fit_score}点)`);
+        }
+      } else {
+        totalAnalysisFailed++;
+        console.log(`    ✗ AI解析失敗（結果なし）`);
+      }
+    } catch (err) {
+      totalAnalysisFailed++;
+      console.error(`    [error] AI解析エラー: ${err.message}`);
+    }
+  }
+
+  console.log(`\n── 完了 ──`);
+  console.log(`  AI解析完了: ${totalAnalyzed}件`);
+  console.log(`  AI解析失敗: ${totalAnalysisFailed}件`);
+  process.exit(0);
+}
+
 // ── analyze-only モード ─────────────────────────
 if (analyzeOnly) {
   console.log("\n── analyze-only モード: 未解析レコードをAI解析 ──");
@@ -148,8 +203,8 @@ if (analyzeOnly) {
       });
 
       if (analysis) {
-        const analysisSql = `INSERT INTO grant_ai_analyses (grant_id, summary_short, support_type, target_entities, max_amount, subsidy_rate, eligible_themes, required_documents, notes, ai_confidence, tara_fit_rank, tara_fit_score, tara_fit_reason, suggested_department, suggested_department_reason, tara_use_case)
-           VALUES (${grant.id}, ${esc(analysis.summary_short)}, ${esc(analysis.support_type)}, ${esc(analysis.target_entities)}, ${esc(analysis.max_amount)}, ${esc(analysis.subsidy_rate)}, ${esc(analysis.eligible_themes)}, ${esc(analysis.required_documents)}, ${esc(analysis.notes)}, ${analysis.ai_confidence ?? "NULL"}, ${esc(analysis.tara_fit_rank)}, ${analysis.tara_fit_score ?? "NULL"}, ${esc(analysis.tara_fit_reason)}, ${esc(analysis.suggested_department)}, ${esc(analysis.suggested_department_reason)}, ${esc(analysis.tara_use_case)})`;
+        const analysisSql = `INSERT INTO grant_ai_analyses (grant_id, summary_short, support_type, target_entities, max_amount, subsidy_rate, eligible_themes, required_documents, notes, ai_confidence, tara_fit_rank, tara_fit_score, tara_fit_reason, suggested_department, suggested_department_reason, tara_use_case, tara_categories)
+           VALUES (${grant.id}, ${esc(analysis.summary_short)}, ${esc(analysis.support_type)}, ${esc(analysis.target_entities)}, ${esc(analysis.max_amount)}, ${esc(analysis.subsidy_rate)}, ${esc(analysis.eligible_themes)}, ${esc(analysis.required_documents)}, ${esc(analysis.notes)}, ${analysis.ai_confidence ?? "NULL"}, ${esc(analysis.tara_fit_rank)}, ${analysis.tara_fit_score ?? "NULL"}, ${esc(analysis.tara_fit_reason)}, ${esc(analysis.suggested_department)}, ${esc(analysis.suggested_department_reason)}, ${esc(analysis.tara_use_case)}, ${esc(Array.isArray(analysis.tara_categories) ? analysis.tara_categories.join(",") : analysis.tara_categories ?? null)})`;
 
         if (execSql(analysisSql)) {
           totalAnalyzed++;
@@ -239,8 +294,8 @@ for (const name of sourceNames) {
           const grantId = grantRow?.[0]?.results?.[0]?.id;
 
           if (grantId) {
-            const analysisSql = `INSERT INTO grant_ai_analyses (grant_id, summary_short, support_type, target_entities, max_amount, subsidy_rate, eligible_themes, required_documents, notes, ai_confidence, tara_fit_rank, tara_fit_score, tara_fit_reason, suggested_department, suggested_department_reason, tara_use_case)
-               VALUES (${grantId}, ${esc(analysis.summary_short)}, ${esc(analysis.support_type)}, ${esc(analysis.target_entities)}, ${esc(analysis.max_amount)}, ${esc(analysis.subsidy_rate)}, ${esc(analysis.eligible_themes)}, ${esc(analysis.required_documents)}, ${esc(analysis.notes)}, ${analysis.ai_confidence ?? "NULL"}, ${esc(analysis.tara_fit_rank)}, ${analysis.tara_fit_score ?? "NULL"}, ${esc(analysis.tara_fit_reason)}, ${esc(analysis.suggested_department)}, ${esc(analysis.suggested_department_reason)}, ${esc(analysis.tara_use_case)})`;
+            const analysisSql = `INSERT INTO grant_ai_analyses (grant_id, summary_short, support_type, target_entities, max_amount, subsidy_rate, eligible_themes, required_documents, notes, ai_confidence, tara_fit_rank, tara_fit_score, tara_fit_reason, suggested_department, suggested_department_reason, tara_use_case, tara_categories)
+               VALUES (${grantId}, ${esc(analysis.summary_short)}, ${esc(analysis.support_type)}, ${esc(analysis.target_entities)}, ${esc(analysis.max_amount)}, ${esc(analysis.subsidy_rate)}, ${esc(analysis.eligible_themes)}, ${esc(analysis.required_documents)}, ${esc(analysis.notes)}, ${analysis.ai_confidence ?? "NULL"}, ${esc(analysis.tara_fit_rank)}, ${analysis.tara_fit_score ?? "NULL"}, ${esc(analysis.tara_fit_reason)}, ${esc(analysis.suggested_department)}, ${esc(analysis.suggested_department_reason)}, ${esc(analysis.tara_use_case)}, ${esc(Array.isArray(analysis.tara_categories) ? analysis.tara_categories.join(",") : analysis.tara_categories ?? null)})`;
 
             if (execSql(analysisSql)) {
               totalAnalyzed++;

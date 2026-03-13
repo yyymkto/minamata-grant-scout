@@ -45,6 +45,7 @@ export const grantAiAnalyses = sqliteTable(
     suggestedDepartment: text("suggested_department"),
     suggestedDepartmentReason: text("suggested_department_reason"),
     taraUseCase: text("tara_use_case"),
+    taraCategories: text("tara_categories"),
     createdAt: text("created_at").notNull().default("(datetime('now'))"),
     updatedAt: text("updated_at").notNull().default("(datetime('now'))"),
   },

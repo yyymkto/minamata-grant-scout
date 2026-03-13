@@ -5,20 +5,20 @@ import { useGrant } from "../../hooks/useGrants";
 function rankColor(rank: string | null) {
   switch (rank) {
     case "A":
-      return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+      return "bg-emerald-100 text-emerald-800 border-emerald-300";
     case "B":
-      return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+      return "bg-amber-100 text-amber-800 border-amber-300";
     case "C":
-      return "bg-slate-500/20 text-slate-400 border-slate-500/30";
+      return "bg-gray-100 text-gray-500 border-gray-300";
     default:
-      return "bg-slate-700/50 text-slate-500 border-slate-600/30";
+      return "bg-gray-50 text-gray-400 border-gray-300";
   }
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-5">
-      <h3 className="mb-3 text-sm font-semibold text-slate-300">{title}</h3>
+    <div className="rounded-xl border border-gray-300 bg-white p-4 sm:p-5 shadow-sm transition-colors">
+      <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">{title}</h3>
       {children}
     </div>
   );
@@ -27,9 +27,32 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
-    <div className="py-1.5">
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="mt-0.5 text-sm text-white whitespace-pre-wrap">{value}</dd>
+    <div className="py-2">
+      <dt className="text-xs font-semibold text-gray-500">{label}</dt>
+      <dd className="mt-1 text-sm leading-relaxed text-gray-800 whitespace-pre-wrap">{value}</dd>
+    </div>
+  );
+}
+
+function SkeletonDetail() {
+  return (
+    <div className="mx-auto max-w-3xl space-y-6 animate-pulse">
+      <div className="h-4 w-24 rounded bg-gray-200" />
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-20 rounded-lg bg-gray-200" />
+          <div className="h-4 w-16 rounded bg-gray-100" />
+        </div>
+        <div className="h-6 w-4/5 rounded bg-gray-200" />
+        <div className="h-4 w-1/3 rounded bg-gray-100" />
+      </div>
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="rounded-xl border border-gray-200 p-5 space-y-3">
+          <div className="h-3 w-20 rounded bg-gray-200" />
+          <div className="h-4 w-full rounded bg-gray-100" />
+          <div className="h-4 w-3/4 rounded bg-gray-100" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -41,17 +64,17 @@ export function GrantDetailPage() {
   const [showRaw, setShowRaw] = useState(false);
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-4xl py-20 text-center">
-        <p className="text-sm text-slate-400">読み込み中...</p>
-      </div>
-    );
+    return <SkeletonDetail />;
   }
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-4xl py-20 text-center">
-        <p className="text-sm text-slate-400">補助金が見つかりません</p>
+      <div className="mx-auto max-w-3xl flex flex-col items-center gap-3 py-20">
+        <span className="text-4xl text-gray-300">&#128533;</span>
+        <p className="text-sm text-gray-500">補助金が見つかりません</p>
+        <Link href="/grants" className="mt-2 cursor-pointer text-sm text-indigo-600 transition-colors hover:text-indigo-500">
+          ← 一覧に戻る
+        </Link>
       </div>
     );
   }
@@ -59,15 +82,15 @@ export function GrantDetailPage() {
   const a = data.analysis;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       {/* Back link */}
-      <Link href="/grants" className="text-sm text-indigo-400 hover:text-indigo-300">
-        ← 一覧に戻る
+      <Link href="/grants" className="inline-flex cursor-pointer items-center gap-1 text-sm text-indigo-600 transition-all duration-200 hover:text-indigo-500 hover:gap-1.5">
+        <span aria-hidden="true">←</span> 一覧に戻る
       </Link>
 
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-3">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {a?.taraFitRank && (
             <span className={`inline-flex items-center rounded-lg border px-3 py-1 text-sm font-bold ${rankColor(a.taraFitRank)}`}>
               ランク {a.taraFitRank}
@@ -76,34 +99,42 @@ export function GrantDetailPage() {
               )}
             </span>
           )}
-          <span className="text-sm text-slate-400">{data.sourceMinistry}</span>
+          <span className="text-sm font-medium text-gray-600">{data.sourceMinistry}</span>
         </div>
-        <h1 className="mt-2 text-xl font-bold text-white leading-snug">{data.title}</h1>
-        <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-400">
-          {data.deadline && <span>締切: {data.deadline}</span>}
-          {data.publishedAt && <span>公開: {data.publishedAt}</span>}
+        <h1 className="text-xl font-bold leading-snug text-gray-900 sm:text-2xl">{data.title}</h1>
+        <div className="flex flex-wrap gap-3 text-sm font-medium text-gray-600 sm:gap-4">
+          {data.deadline && (
+            <span className="flex items-center gap-1">
+              <span className="text-gray-400" aria-hidden="true">&#128197;</span>
+              締切: {data.deadline}
+            </span>
+          )}
+          {data.publishedAt && (
+            <span>公開: {data.publishedAt}</span>
+          )}
           <a
             href={data.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-indigo-400 hover:text-indigo-300"
+            className="cursor-pointer text-indigo-600 transition-colors duration-200 hover:text-indigo-500"
           >
-            元ページを開く
+            元ページを開く ↗
           </a>
         </div>
       </div>
 
       {/* AI Summary */}
       {a?.summaryShort && (
-        <Section title="AI要約">
-          <p className="text-sm text-white leading-relaxed">{a.summaryShort}</p>
-        </Section>
+        <div className="rounded-xl border border-indigo-300 bg-indigo-50 p-4 shadow-sm sm:p-5">
+          <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-indigo-700">AI要約</h3>
+          <p className="text-sm font-medium leading-relaxed text-gray-800">{a.summaryShort}</p>
+        </div>
       )}
 
       {/* Grant details */}
       {a && (
         <Section title="制度の概要">
-          <dl className="divide-y divide-slate-700/50">
+          <dl className="divide-y divide-gray-200">
             <Field label="支援タイプ" value={a.supportType} />
             <Field label="対象者" value={a.targetEntities} />
             <Field label="補助額上限" value={a.maxAmount} />
@@ -118,27 +149,16 @@ export function GrantDetailPage() {
         </Section>
       )}
 
-      {/* Tara fit */}
+      {/* Tara fit + Department + Use case — 2-col on desktop */}
       {a?.taraFitReason && (
         <Section title="太良町との相性">
-          <p className="text-sm text-white leading-relaxed">{a.taraFitReason}</p>
+          <p className="text-sm leading-relaxed text-gray-800">{a.taraFitReason}</p>
         </Section>
       )}
 
-      {/* Department */}
-      {a?.suggestedDepartment && (
-        <Section title="想定担当課">
-          <p className="text-sm font-medium text-indigo-400">{a.suggestedDepartment}</p>
-          {a.suggestedDepartmentReason && (
-            <p className="mt-1 text-sm text-slate-300">{a.suggestedDepartmentReason}</p>
-          )}
-        </Section>
-      )}
-
-      {/* Use case */}
       {a?.taraUseCase && (
         <Section title="太良町での活用仮説">
-          <p className="text-sm text-white leading-relaxed">{a.taraUseCase}</p>
+          <p className="text-sm leading-relaxed text-gray-800">{a.taraUseCase}</p>
         </Section>
       )}
 
@@ -148,13 +168,13 @@ export function GrantDetailPage() {
           <button
             type="button"
             onClick={() => setShowRaw(!showRaw)}
-            className="text-sm text-slate-400 hover:text-slate-300"
+            className="cursor-pointer text-sm text-gray-500 transition-colors duration-200 hover:text-gray-700"
           >
             {showRaw ? "▼ 原文を閉じる" : "▶ 原文を表示"}
           </button>
           {showRaw && (
-            <div className="mt-2 rounded-xl border border-slate-700/50 bg-slate-900 p-4">
-              <pre className="whitespace-pre-wrap text-xs text-slate-400 leading-relaxed">
+            <div className="mt-2 rounded-xl border border-gray-300 bg-gray-50 p-4">
+              <pre className="whitespace-pre-wrap text-xs leading-relaxed text-gray-500">
                 {data.rawText}
               </pre>
             </div>

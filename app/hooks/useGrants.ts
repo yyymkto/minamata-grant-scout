@@ -16,7 +16,9 @@ export type GrantSummary = {
   summaryShort: string | null;
   taraFitRank: string | null;
   taraFitScore: number | null;
+  maxAmount: string | null;
   suggestedDepartment: string | null;
+  taraCategories: string | null;
 };
 
 export type GrantAiAnalysis = {
@@ -37,6 +39,7 @@ export type GrantAiAnalysis = {
   suggestedDepartment: string | null;
   suggestedDepartmentReason: string | null;
   taraUseCase: string | null;
+  taraCategories: string | null;
 };
 
 export type GrantDetail = {
@@ -56,14 +59,18 @@ export type GrantDetail = {
 export function useGrants(filters: {
   rank?: string;
   ministry?: string;
+  category?: string;
   department?: string;
   q?: string;
+  includeEnded?: boolean;
 }) {
   const params = new URLSearchParams();
   if (filters.rank) params.set("rank", filters.rank);
   if (filters.ministry) params.set("ministry", filters.ministry);
+  if (filters.category) params.set("category", filters.category);
   if (filters.department) params.set("department", filters.department);
   if (filters.q) params.set("q", filters.q);
+  if (filters.includeEnded) params.set("include_ended", "true");
 
   return useQuery({
     queryKey: [...GRANTS_KEY, filters],

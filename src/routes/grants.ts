@@ -12,7 +12,9 @@ const app = new Hono<AppContextEnv>()
     const rank = c.req.query("rank");
     const ministry = c.req.query("ministry");
     const department = c.req.query("department");
+    const category = c.req.query("category");
     const q = c.req.query("q");
+    const includeEnded = c.req.query("include_ended");
 
     const rows = await db
       .select({
@@ -28,6 +30,8 @@ const app = new Hono<AppContextEnv>()
         taraFitRank: grantAiAnalyses.taraFitRank,
         taraFitScore: grantAiAnalyses.taraFitScore,
         suggestedDepartment: grantAiAnalyses.suggestedDepartment,
+        maxAmount: grantAiAnalyses.maxAmount,
+        taraCategories: grantAiAnalyses.taraCategories,
       })
       .from(grants)
       .leftJoin(grantAiAnalyses, eq(grants.id, grantAiAnalyses.grantId))
@@ -37,9 +41,15 @@ const app = new Hono<AppContextEnv>()
 
     if (rank) {
       filtered = filtered.filter((r) => r.taraFitRank === rank);
+    } else {
+      // デフォルトでCランクを除外（rank=C で明示指定すれば取得可能）
+      filtered = filtered.filter((r) => r.taraFitRank !== "C");
     }
     if (ministry) {
       filtered = filtered.filter((r) => r.sourceMinistry === ministry);
+    }
+    if (category) {
+      filtered = filtered.filter((r) => r.taraCategories?.split(",").includes(category));
     }
     if (department) {
       filtered = filtered.filter((r) => r.suggestedDepartment?.includes(department));
@@ -51,6 +61,14 @@ const app = new Hono<AppContextEnv>()
           r.title.toLowerCase().includes(lower) ||
           r.summaryShort?.toLowerCase().includes(lower)
       );
+    }
+    // デフォルトで締切済みを除外。include_ended=true で過去90日分を表示
+    const today = new Date().toISOString().slice(0, 10);
+    if (includeEnded === "true") {
+      const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      filtered = filtered.filter((r) => !r.deadline || r.deadline >= cutoff);
+    } else {
+      filtered = filtered.filter((r) => !r.deadline || r.deadline >= today);
     }
 
     return c.json(filtered);
