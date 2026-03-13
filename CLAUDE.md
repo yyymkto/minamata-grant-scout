@@ -11,7 +11,7 @@
 - cf-starter テンプレートベース（認証・org・RBAC は全削除済み）
 - React + Tailwind v4 + TanStack Query / Hono / D1 + Drizzle
 - Cloudflare Queues（非同期ジョブ）+ Cron Triggers（定期実行）
-- AI: Kimi K2.5 (Moonshot AI, OpenAI互換API)
+- AI: Kimi K2.5 (Moonshot AI) primary / GPT-4o-mini fallback
 
 ## 開発コマンド
 
@@ -30,7 +30,7 @@ npm run ingest           # ローカルCLIで補助金取り込み（レガシ�
 Cron (0 21 * * * = JST 6:00)
   → ingestGrantList(): jGrants API一覧取得 → D1保存 → Queue投入
   → grant.fetch_detail: 詳細取得 → raw_text・省庁名をD1更新
-  → grant.analyze: Kimi K2.5解析 → grant_ai_analysesに保存
+  → grant.analyze: AI解析（Kimi→GPT-4o-mini fallback）→ Zodバリデーション → D1保存
 ```
 
 手動トリガー: `POST /api/grants/ingest`（x-admin-secret ヘッダ必須）
@@ -77,13 +77,18 @@ Cron (0 21 * * * = JST 6:00)
 
 ## AI 解析の注意点
 
+- Kimi K2.5 primary → GPT-4o-mini fallback（Kimi失敗時に自動切替）
 - `thinking: { type: "disabled" }` でInstant Mode
 - reasoning_contentフォールバック + ブレース対応JSONパーサーで安定抽出
-- `.dev.vars` に `KIMI_API_KEY` と `ADMIN_SECRET` を設定
+- AI出力はZodスキーマでバリデーション（不正な型・範囲はデフォルト値にフォールバック）
+- 外部API呼び出しにAbortSignal.timeout設定（jGrants: 15s, LLM: 30s）
+- Queue handlerはON CONFLICT DO NOTHINGで冪等（at-least-once配信に対応）
+- `.dev.vars` に `KIMI_API_KEY`, `OPENAI_API_KEY`, `ADMIN_SECRET` を設定
 
 ## シークレット
 
 ```bash
 wrangler secret put KIMI_API_KEY
+wrangler secret put OPENAI_API_KEY   # GPT-4o-mini fallback（任意）
 wrangler secret put ADMIN_SECRET
 ```

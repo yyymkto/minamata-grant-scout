@@ -3,6 +3,7 @@
  */
 import { logEvent } from "../../lib/logging";
 
+const FETCH_TIMEOUT_MS = 15_000;
 const API_BASE = "https://api.jgrants-portal.go.jp/exp";
 const LIST_URL = `${API_BASE}/v1/public/subsidies`;
 const DETAIL_URL = `${API_BASE}/v2/public/subsidies/id`;
@@ -61,6 +62,7 @@ async function searchSubsidies(keyword: string, targetArea: string): Promise<JGr
       Accept: "application/json",
       "User-Agent": "TaraGrantScout/1.0 (municipal-grant-research)",
     },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -76,6 +78,7 @@ async function fetchDetail(id: string): Promise<JGrantsDetail | null> {
   try {
     const res = await fetch(`${DETAIL_URL}/${id}`, {
       headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { result?: JGrantsDetail | JGrantsDetail[] };

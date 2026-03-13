@@ -19,7 +19,7 @@ Web UI (React SPA)
   → GET /api/grants/:id → 詳細 + AI 解析結果
 ```
 
-Cloudflare 完結（Workers + D1 + Queues + Cron Triggers）。外部依存は jGrants API と Kimi K2.5 API のみ。
+Cloudflare 完結（Workers + D1 + Queues + Cron Triggers）。外部依存は jGrants API と LLM API（Kimi K2.5 / GPT-4o-mini）のみ。
 
 ## スタック
 
@@ -30,7 +30,7 @@ Cloudflare 完結（Workers + D1 + Queues + Cron Triggers）。外部依存は j
 | Database | D1 (SQLite) + Drizzle ORM |
 | 非同期処理 | Cloudflare Queues |
 | 定期実行 | Cron Triggers |
-| AI 解析 | Kimi K2.5 (Moonshot AI) |
+| AI 解析 | Kimi K2.5 (Moonshot AI) / GPT-4o-mini (fallback) |
 | データソース | jGrants API (デジタル庁) |
 | Build | Vite + @cloudflare/vite-plugin |
 
@@ -69,7 +69,7 @@ npm run ingest -- --remote        # リモートD1に書き込み
 
 ## AI 解析
 
-各補助金に対して Kimi K2.5 が以下を生成：
+各補助金に対して Kimi K2.5（フォールバック: GPT-4o-mini）が以下を生成：
 
 | フィールド | 内容 |
 |---|---|
@@ -123,6 +123,7 @@ tara-grant-scout/
 ```bash
 # シークレット設定（初回のみ）
 wrangler secret put KIMI_API_KEY
+wrangler secret put OPENAI_API_KEY   # GPT-4o-mini fallback（任意）
 wrangler secret put ADMIN_SECRET
 
 # マイグレーション + デプロイ
@@ -130,9 +131,3 @@ npm run db:migrate:remote
 npm run deploy
 ```
 
-## コスト
-
-| リソース | 月額 |
-|---|---|
-| Cloudflare Workers/D1/Queues | 無料枠内 |
-| Kimi K2.5 API | ~$1〜2（~500件/月） |

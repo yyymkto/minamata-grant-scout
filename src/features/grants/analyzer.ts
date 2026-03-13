@@ -4,6 +4,31 @@
 import { TARA_PROFILE } from "./tara-profile";
 import { parseJsonFromText } from "./json-parser";
 import { logEvent } from "../../lib/logging";
+import { z } from "zod";
+
+const FETCH_TIMEOUT_MS = 30_000;
+
+const VALID_RANKS = ["A", "B", "C"] as const;
+const analysisSchema = z.object({
+  summary_short: z.string().default(""),
+  support_type: z.string().default("その他"),
+  target_entities: z.string().default(""),
+  max_amount: z.string().nullable().default(null),
+  subsidy_rate: z.string().nullable().default(null),
+  eligible_themes: z.string().default(""),
+  required_documents: z.string().nullable().default(null),
+  notes: z.string().nullable().default(null),
+  ai_confidence: z.coerce.number().int().min(0).max(100).default(50),
+  tara_fit_rank: z.string().transform((v) =>
+    VALID_RANKS.includes(v as (typeof VALID_RANKS)[number]) ? v : "C"
+  ),
+  tara_fit_score: z.coerce.number().int().min(0).max(100).default(0),
+  tara_fit_reason: z.string().default(""),
+  suggested_department: z.string().default(""),
+  suggested_department_reason: z.string().default(""),
+  tara_use_case: z.string().default(""),
+  tara_categories: z.union([z.array(z.string()), z.string()]).default([]),
+});
 
 const KIMI_BASE_URL = "https://api.moonshot.ai/v1";
 
@@ -123,6 +148,7 @@ async function callLlm(
           Authorization: `Bearer ${provider.apiKey}`,
         },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
 
       if (res.status === 429 || res.status >= 500) {
@@ -168,7 +194,17 @@ async function callLlm(
         return null;
       }
 
-      return parsed as unknown as AnalysisResult;
+      const validated = analysisSchema.safeParse(parsed);
+      if (!validated.success) {
+        logEvent("warn", "analyzer.validation_failed", {
+          provider: provider.model,
+          title: grant.title,
+          errors: validated.error.issues.map((i) => `${i.path}: ${i.message}`).join("; "),
+        });
+        return null;
+      }
+
+      return validated.data as AnalysisResult;
     } catch (err) {
       logEvent("error", "analyzer.exception", {
         provider: provider.model,

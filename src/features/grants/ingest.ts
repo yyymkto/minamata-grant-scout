@@ -214,7 +214,7 @@ export async function handleAnalyze(
     suggestedDepartmentReason: analysis.suggested_department_reason,
     taraUseCase: analysis.tara_use_case,
     taraCategories: categories,
-  });
+  }).onConflictDoNothing();
 
   logEvent("info", "job.analyze.done", {
     grantId: payload.grantId,
