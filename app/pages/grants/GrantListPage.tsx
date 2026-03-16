@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Link } from "wouter";
+import { useState, useMemo, useCallback } from "react";
+import { Link, useSearchParams } from "wouter";
 import { useGrants } from "../../hooks/useGrants";
 
 const CATEGORIES = [
@@ -51,6 +51,12 @@ function deadlineInfo(deadline: string | null) {
   return { text: formatted, urgent: false, ended: false, days: diff };
 }
 
+function isNewGrant(createdAt: string): boolean {
+  const created = new Date(createdAt).getTime();
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  return created >= sevenDaysAgo;
+}
+
 function SkeletonRow() {
   return (
     <div className="flex items-center gap-3 px-4 py-3 animate-pulse">
@@ -68,11 +74,32 @@ function SkeletonRow() {
 type SortKey = "rank" | "score" | "deadline";
 
 export function GrantListPage() {
-  const [category, setCategory] = useState("");
-  const [q, setQ] = useState("");
-  const [searchInput, setSearchInput] = useState("");
-  const [sortBy, setSortBy] = useState<SortKey>("score");
-  const [showEnded, setShowEnded] = useState(false);
+  const searchParams = useSearchParams();
+  const params = searchParams[0];
+  const setParams = searchParams[1];
+
+  // Read initial state from URL
+  const category = params.get("category") ?? "";
+  const q = params.get("q") ?? "";
+  const sortBy = (params.get("sort") as SortKey) || "score";
+  const showEnded = params.get("ended") === "1";
+
+  const [searchInput, setSearchInput] = useState(q);
+
+  const [rankInfoOpen, setRankInfoOpen] = useState(false);
+
+  const setFilter = useCallback(
+    (key: string, value: string) => {
+      const next = new URLSearchParams(params);
+      if (value) {
+        next.set(key, value);
+      } else {
+        next.delete(key);
+      }
+      setParams(next);
+    },
+    [params, setParams],
+  );
 
   const { data: grants = [], isLoading } = useGrants({
     category: category || undefined,
@@ -114,7 +141,7 @@ export function GrantListPage() {
       {/* Category filters */}
       <div className="flex flex-wrap gap-1.5 sm:gap-2">
         <button
-          onClick={() => setCategory("")}
+          onClick={() => setFilter("category", "")}
           className={`cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${!category ? "bg-indigo-600 text-white shadow-sm" : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50 hover:text-gray-900"}`}
         >
           すべて
@@ -122,7 +149,7 @@ export function GrantListPage() {
         {CATEGORIES.map((cat) => (
           <button
             key={cat.key}
-            onClick={() => setCategory(category === cat.key ? "" : cat.key)}
+            onClick={() => setFilter("category", category === cat.key ? "" : cat.key)}
             className={`cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${category === cat.key ? "bg-indigo-600 text-white shadow-sm" : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50 hover:text-gray-900"}`}
           >
             {cat.label}
@@ -136,7 +163,7 @@ export function GrantListPage() {
           className="flex gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            setQ(searchInput);
+            setFilter("q", searchInput);
           }}
         >
           <input
@@ -159,7 +186,7 @@ export function GrantListPage() {
             <input
               type="checkbox"
               checked={showEnded}
-              onChange={(e) => setShowEnded(e.target.checked)}
+              onChange={(e) => setFilter("ended", e.target.checked ? "1" : "")}
               className="cursor-pointer rounded border-gray-300 bg-white text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0"
             />
             終了分も表示
@@ -170,12 +197,37 @@ export function GrantListPage() {
             {(["score", "rank", "deadline"] as SortKey[]).map((key) => (
               <button
                 key={key}
-                onClick={() => setSortBy(key)}
+                onClick={() => setFilter("sort", key === "score" ? "" : key)}
                 className={`cursor-pointer rounded px-2 py-1 transition-all duration-200 ${sortBy === key ? "bg-gray-900 text-white" : "hover:bg-gray-200 hover:text-gray-900"}`}
               >
                 {key === "score" ? "スコア" : key === "rank" ? "ランク" : "締切"}
               </button>
             ))}
+          </div>
+          <span className="hidden text-gray-300 sm:inline">|</span>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setRankInfoOpen(!rankInfoOpen)}
+              className="cursor-pointer rounded px-1.5 py-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-700 transition-all"
+              title="ランクの基準"
+            >
+              ?
+            </button>
+            {rankInfoOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setRankInfoOpen(false)} />
+                <div className="absolute right-0 top-7 z-50 w-64 rounded-lg border border-gray-200 bg-white p-3 text-xs leading-relaxed text-gray-600 shadow-lg">
+                  <p className="mb-2 font-semibold text-gray-800">AIランクの基準</p>
+                  <div className="space-y-1.5">
+                    <p><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-emerald-100 text-[10px] font-bold text-emerald-800">A</span> 太良町が直接活用できる可能性が高い</p>
+                    <p><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-amber-100 text-[10px] font-bold text-amber-800">B</span> 間接的に活用できる・条件付きで該当</p>
+                    <p><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-gray-100 text-[10px] font-bold text-gray-500">C</span> 太良町との関連性が低い（非表示）</p>
+                  </div>
+                  <p className="mt-2 text-[10px] text-gray-400">スコアはAIが総合的に判定した太良町への適合度（0〜100）</p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -198,6 +250,7 @@ export function GrantListPage() {
           <div className="divide-y divide-gray-200">
             {sorted.map((g) => {
               const dl = deadlineInfo(g.deadline);
+              const isNew = isNewGrant(g.createdAt);
               return (
                 <Link
                   key={g.id}
@@ -214,6 +267,9 @@ export function GrantListPage() {
                   {/* Content */}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold leading-snug text-gray-900 group-hover:text-indigo-700 transition-colors duration-200 sm:truncate">
+                      {isNew && (
+                        <span className="mr-1.5 inline-flex items-center rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white align-text-top">NEW</span>
+                      )}
                       {g.title}
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">

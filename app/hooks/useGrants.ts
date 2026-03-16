@@ -87,6 +87,8 @@ export type GrantStatus = {
   grants: number;
   analyzed: number;
   lastUpdated: string | null;
+  lastCronAt: string | null;
+  lastCronNewCount: number | null;
 };
 
 export function useGrantStatus() {

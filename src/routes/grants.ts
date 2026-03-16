@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { desc, eq, and, or, ne, gte, like, count, max, sql, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
-import { grants, grantAiAnalyses } from "../db/schema";
+import { grants, grantAiAnalyses, systemMeta } from "../db/schema";
 import type { AppContextEnv } from "../types";
 import { jsonError } from "../lib/http";
 import { ingestGrantList } from "../features/grants/ingest";
@@ -90,7 +90,7 @@ const app = new Hono<AppContextEnv>()
 
     return c.json(rows);
   })
-  // ステータス（最終更新日時・件数）
+  // ステータス（最終更新日時・件数・最終cron実行）
   .get("/status", async (c) => {
     const db = drizzle(c.env.DB);
     const [grantStats] = await db
@@ -99,11 +99,21 @@ const app = new Hono<AppContextEnv>()
     const [analysisStats] = await db
       .select({ total: count() })
       .from(grantAiAnalyses);
+    const [cronAt] = await db
+      .select({ value: systemMeta.value })
+      .from(systemMeta)
+      .where(eq(systemMeta.key, "last_cron_at"));
+    const [cronNewCount] = await db
+      .select({ value: systemMeta.value })
+      .from(systemMeta)
+      .where(eq(systemMeta.key, "last_cron_new_count"));
 
     return c.json({
       grants: grantStats?.total ?? 0,
       analyzed: analysisStats?.total ?? 0,
       lastUpdated: grantStats?.lastUpdated ?? null,
+      lastCronAt: cronAt?.value ?? null,
+      lastCronNewCount: cronNewCount ? Number(cronNewCount.value) : null,
     });
   })
   // GET ONE with full analysis

@@ -54,3 +54,11 @@ export const grantAiAnalyses = sqliteTable(
     index("idx_grant_ai_analyses_tara_fit_rank").on(table.taraFitRank),
   ]
 );
+
+// ── System metadata (key-value) ─────────────────
+
+export const systemMeta = sqliteTable("system_meta", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: text("updated_at").notNull().default("(datetime('now'))"),
+});

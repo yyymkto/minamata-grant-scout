@@ -6,6 +6,7 @@ import type { AppContextEnv, Env, IngestJobMessage } from "./types";
 import health from "./routes/health";
 import grantsRoutes from "./routes/grants";
 import { csrfProtection } from "./middleware/csrf";
+import { rateLimiter } from "./middleware/rate-limit";
 import { resolveCorsOrigins } from "./lib/cors";
 import { logEvent } from "./lib/logging";
 import { requestId } from "./middleware/request-id";
@@ -45,6 +46,7 @@ export const app = new Hono<AppContextEnv>()
       allowHeaders: ["Content-Type", "Authorization", "x-admin-secret"],
     })
   )
+  .use("/api/*", rateLimiter)
   .use("/api/*", csrfProtection)
   .onError((err, c) => {
     logEvent("error", "request.error", {

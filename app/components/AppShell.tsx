@@ -7,6 +7,17 @@ function formatDate(iso: string | null) {
   return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
 
+function formatDateTime(iso: string | null) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function hoursAgo(iso: string | null): number | null {
+  if (!iso) return null;
+  return (Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60);
+}
+
 export function AppShell({
   children,
 }: {
@@ -15,6 +26,8 @@ export function AppShell({
 }) {
   const [aboutOpen, setAboutOpen] = useState(false);
   const { data: status } = useGrantStatus();
+  const cronHours = hoursAgo(status?.lastCronAt ?? null);
+  const isStale = cronHours == null || cronHours > 26;
 
   return (
     <div className="flex min-h-dvh flex-col bg-gray-50 text-gray-900">
@@ -22,7 +35,20 @@ export function AppShell({
       <footer className="border-t border-gray-200 py-4 text-center text-xs text-gray-400">
         {status && (
           <div className="mb-2">
-            最終更新: {formatDate(status.lastUpdated)}
+            {isStale ? (
+              <span className="mr-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">
+                <span className="text-[10px]">&#9888;</span> データ更新を確認中
+              </span>
+            ) : (
+              <span className="mr-2 inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-green-700">
+                正常稼働中
+              </span>
+            )}
+            最終チェック: {formatDateTime(status.lastCronAt)}
+            <span className="mx-1.5">·</span>
+            {status.lastCronNewCount != null && status.lastCronNewCount > 0
+              ? `新着${status.lastCronNewCount}件`
+              : "新着なし"}
             <span className="mx-1.5">·</span>
             {status.grants}件収集 / {status.analyzed}件解析済み
           </div>

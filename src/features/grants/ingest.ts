@@ -4,9 +4,9 @@
  * 1. jGrants APIから一覧取得 → D1に新規保存（ON CONFLICT対応）
  * 2. 新規分をQueue投入（詳細取得→AI解析）
  */
-import { drizzle } from "drizzle-orm/d1";
+import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
 import { eq, sql, isNull } from "drizzle-orm";
-import { grants, grantAiAnalyses } from "../../db/schema";
+import { grants, grantAiAnalyses, systemMeta } from "../../db/schema";
 import { fetchGrantList, enrichGrantDetail, type RawGrant } from "./jgrants-source";
 import { analyzeGrant } from "./analyzer";
 import { logEvent } from "../../lib/logging";
@@ -26,6 +26,9 @@ export async function ingestGrantList(env: Env): Promise<{
     logEvent("warn", "ingest.empty_result", {
       message: "jGrants API returned 0 grants — possible upstream outage",
     });
+    // Record that the cron ran, even with 0 results
+    await upsertMeta(db, "last_cron_at", new Date().toISOString());
+    await upsertMeta(db, "last_cron_new_count", "0");
     return { total: 0, newCount: 0, skipped: 0, queued: 0 };
   }
 
@@ -78,6 +81,11 @@ export async function ingestGrantList(env: Env): Promise<{
       );
     }
   }
+
+  // Record cron run result
+  const now = new Date().toISOString();
+  await upsertMeta(db, "last_cron_at", now);
+  await upsertMeta(db, "last_cron_new_count", String(newCount));
 
   logEvent("info", "ingest.complete", {
     total: rawGrants.length,
@@ -221,4 +229,13 @@ export async function handleAnalyze(
     rank: analysis.tara_fit_rank,
     score: analysis.tara_fit_score,
   });
+}
+
+/** Upsert a system_meta key */
+async function upsertMeta(db: DrizzleD1Database, key: string, value: string) {
+  await db.insert(systemMeta).values({ key, value, updatedAt: new Date().toISOString() })
+    .onConflictDoUpdate({
+      target: systemMeta.key,
+      set: { value, updatedAt: new Date().toISOString() },
+    });
 }
