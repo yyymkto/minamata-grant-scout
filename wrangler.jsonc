@@ -11,7 +11,7 @@
       "migrations_dir": "./migrations"
     }
   ],
-  // Workers AI — 補助金のAI解析（主モデル: Qwen3 30B）。外部APIはフォールバック
+  // Workers AI — 補助金のAI解析（主モデル: Workers AI）。外部APIはフォールバック
   "ai": {
     "binding": "AI"
   },

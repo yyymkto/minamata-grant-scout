@@ -1,9 +1,17 @@
+export interface WorkersAiBinding {
+  run: <T = unknown>(
+    model: string,
+    inputs: Record<string, unknown>,
+    options?: Record<string, unknown>
+  ) => Promise<T>;
+}
+
 export interface Env {
   DB: D1Database;
   KV?: KVNamespace;
   JOBS: Queue;
   ASSETS: Fetcher;
-  AI: Ai;
+  AI?: WorkersAiBinding;
   CORS_ORIGIN?: string;
   APP_BASE_URL?: string;
   // 外部LLMはフォールバック用（主モデルは Workers AI）

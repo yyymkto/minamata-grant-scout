@@ -5,3 +5,4 @@ dist/
 .mf/
 tmp/
 .claude/
+.superset/

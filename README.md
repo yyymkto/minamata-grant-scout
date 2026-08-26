@@ -12,14 +12,14 @@ Cron Trigger (毎日 JST 6:00)
 
 Queue Consumer
   → grant.fetch_detail: 詳細取得 → D1 更新
-  → grant.analyze: Kimi K2.5 で AI 解析 → D1 に結果保存
+  → grant.analyze: Cloudflare Workers AI で AI 解析 → D1 に結果保存
 
 Web UI (React SPA)
   → GET /api/grants → フィルタ付き一覧表示
   → GET /api/grants/:id → 詳細 + AI 解析結果
 ```
 
-Cloudflare 完結（Workers + D1 + Queues + Cron Triggers）。外部依存は jGrants API と LLM API（Kimi K2.5 / GPT-4o-mini）のみ。
+Cloudflare 完結（Workers + D1 + Queues + Workers AI + Cron Triggers）。外部依存は jGrants API のみ（任意で OpenAI / Kimi API フォールバックも可能）。
 
 ## スタック
 
@@ -30,7 +30,7 @@ Cloudflare 完結（Workers + D1 + Queues + Cron Triggers）。外部依存は j
 | Database | D1 (SQLite) + Drizzle ORM |
 | 非同期処理 | Cloudflare Queues |
 | 定期実行 | Cron Triggers |
-| AI 解析 | Kimi K2.5 (Moonshot AI) / GPT-4o-mini (fallback) |
+| AI 解析 | Cloudflare Workers AI (Llama 3.3 70B / Qwen 2.5 72B) |
 | データソース | jGrants API (デジタル庁) |
 | Build | Vite + @cloudflare/vite-plugin |
 
@@ -67,18 +67,18 @@ npm run ingest -- --analyze-only  # 未解析分のみAI解析
 npm run ingest -- --remote        # リモートD1に書き込み
 ```
 
-## AI 解析
+## AI 解析（4軸ルーブリック評価・構造化サマリー）
 
-各補助金に対して Kimi K2.5（フォールバック: GPT-4o-mini）が以下を生成：
+各補助金に対して Workers AI（Llama 3.3 70B / Qwen 2.5 72B）が以下を生成：
 
 | フィールド | 内容 |
 |---|---|
-| `tara_fit_rank` | A（有望）/ B（検討余地あり）/ C（関連薄い） |
-| `tara_fit_score` | 0〜100 の適合スコア |
-| `tara_fit_reason` | 太良町への適合理由 |
-| `tara_use_case` | 太良町での具体的な活用仮説 |
+| `tara_fit_score` | 4軸ルーブリック採点（申請主体適格性:25点、産業合致度:35点、補助実効性:20点、実現性:20点）による 0〜100点 の適合スコア |
+| `tara_fit_rank` | スコアに基づく自動ランク判定: A（75点以上・有望）/ B（50〜74点・検討余地あり）/ C（49点以下・関連薄い） |
+| `tara_fit_reason` | 4軸評価に基づく太良町への適合理由 |
+| `tara_use_case` | 太良町の資源・課題を踏まえた具体的な活用仮説 |
 | `tara_categories` | カテゴリ分類（農業、漁業、林業、旅館・観光 等） |
-| `summary_short` | 2〜3 文の要約 |
+| `summary_short` | 【対象】【使途】【補助】【アクション】の構造化サマリー |
 | `max_amount` | 補助額上限 |
 
 UI ではデフォルトで A・B ランクのみ表示（C は除外）。
