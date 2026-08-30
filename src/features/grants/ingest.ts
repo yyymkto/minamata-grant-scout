@@ -1,16 +1,30 @@
 /**
  * Ingest オーケストレータ — cron/手動トリガーから呼ばれる
  *
- * 1. jGrants APIから一覧取得 → D1に新規保存（ON CONFLICT対応）
+ * 1. jGrants API + 熊本県公式サイトRSSから一覧取得 → D1に新規保存（ON CONFLICT対応）
  * 2. 新規分をQueue投入（詳細取得→AI解析）
  */
 import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
-import { eq, sql, isNull } from "drizzle-orm";
+import { eq, sql, isNull, inArray } from "drizzle-orm";
 import { grants, grantAiAnalyses, systemMeta } from "../../db/schema";
 import { fetchGrantList, enrichGrantDetail, type RawGrant } from "./jgrants-source";
+import { fetchKumamotoPrefGrantList, fetchKumamotoPrefArticleBody } from "./kumamoto-pref-source";
 import { analyzeGrant } from "./analyzer";
 import { logEvent } from "../../lib/logging";
 import type { Env } from "../../types";
+
+type IngestSource = "jgrants" | "kumamoto_pref";
+
+interface IngestableGrant {
+  title: string;
+  source_ministry: string;
+  source_url: string;
+  published_at: string | null;
+  deadline: string | null;
+  category_raw: string | null;
+  source: IngestSource;
+  jgrants_id?: string;
+}
 
 /** cron/手動で呼ばれる: 一覧取得→D1保存→Queue投入 */
 export async function ingestGrantList(env: Env): Promise<{
@@ -20,11 +34,20 @@ export async function ingestGrantList(env: Env): Promise<{
   queued: number;
 }> {
   const db = drizzle(env.DB);
-  const rawGrants = await fetchGrantList();
+
+  const [jgrantsRaw, kumamotoPrefRaw] = await Promise.all([
+    fetchGrantList(),
+    fetchKumamotoPrefGrantList(),
+  ]);
+
+  const rawGrants: IngestableGrant[] = [
+    ...jgrantsRaw.map((g) => ({ ...g, source: "jgrants" as const })),
+    ...kumamotoPrefRaw.map((g) => ({ ...g, source: "kumamoto_pref" as const })),
+  ];
 
   if (rawGrants.length === 0) {
     logEvent("warn", "ingest.empty_result", {
-      message: "jGrants API returned 0 grants — possible upstream outage",
+      message: "jGrants API / 熊本県RSS returned 0 grants — possible upstream outage",
     });
     // Record that the cron ran, even with 0 results
     await upsertMeta(db, "last_cron_at", new Date().toISOString());
@@ -61,7 +84,7 @@ export async function ingestGrantList(env: Env): Promise<{
     if (inserted) {
       queueMessages.push({
         type: "grant.fetch_detail",
-        payload: { grantId: inserted.id, jgrantsId: g.jgrants_id },
+        payload: { grantId: inserted.id, source: g.source, jgrantsId: g.jgrants_id },
       });
       queued++;
     }
@@ -100,7 +123,7 @@ export async function ingestGrantList(env: Env): Promise<{
 /** Queue consumer: 詳細取得ジョブ */
 export async function handleFetchDetail(
   env: Env,
-  payload: { grantId: number; jgrantsId: string }
+  payload: { grantId: number; source?: IngestSource; jgrantsId?: string }
 ): Promise<void> {
   const db = drizzle(env.DB);
   const [grant] = await db
@@ -113,23 +136,32 @@ export async function handleFetchDetail(
     return;
   }
 
-  // 詳細取得してraw_text・省庁名を埋める
-  const rawGrant: RawGrant = {
-    title: grant.title,
-    source_ministry: grant.sourceMinistry,
-    source_url: grant.sourceUrl,
-    published_at: grant.publishedAt,
-    deadline: grant.deadline,
-    raw_text: grant.rawText,
-    category_raw: grant.categoryRaw,
-    jgrants_id: payload.jgrantsId,
-  };
+  let rawText: string | null = null;
+  let sourceMinistry = grant.sourceMinistry;
 
-  await enrichGrantDetail(rawGrant);
+  if (payload.source === "kumamoto_pref") {
+    // 熊本県公式サイトの記事本文を取得（省庁名は一覧取得時点で確定済みなので上書き不要）
+    rawText = await fetchKumamotoPrefArticleBody(grant.sourceUrl);
+  } else {
+    // jGrants詳細取得してraw_text・省庁名を埋める
+    const rawGrant: RawGrant = {
+      title: grant.title,
+      source_ministry: grant.sourceMinistry,
+      source_url: grant.sourceUrl,
+      published_at: grant.publishedAt,
+      deadline: grant.deadline,
+      raw_text: grant.rawText,
+      category_raw: grant.categoryRaw,
+      jgrants_id: payload.jgrantsId ?? "",
+    };
+    await enrichGrantDetail(rawGrant);
+    rawText = rawGrant.raw_text;
+    sourceMinistry = rawGrant.source_ministry;
+  }
 
   // 詳細取得できなかった場合はthrowしてretryさせる
-  if (!rawGrant.raw_text && !grant.rawText) {
-    logEvent("warn", "job.fetch_detail.no_text", { grantId: payload.grantId });
+  if (!rawText && !grant.rawText) {
+    logEvent("warn", "job.fetch_detail.no_text", { grantId: payload.grantId, source: payload.source });
     throw new Error(`Detail fetch failed for grant ${payload.grantId} — will retry`);
   }
 
@@ -137,16 +169,17 @@ export async function handleFetchDetail(
   await db
     .update(grants)
     .set({
-      rawText: rawGrant.raw_text,
-      sourceMinistry: rawGrant.source_ministry,
+      rawText,
+      sourceMinistry,
       updatedAt: new Date().toISOString(),
     })
     .where(eq(grants.id, payload.grantId));
 
   logEvent("info", "job.fetch_detail.done", {
     grantId: payload.grantId,
-    ministry: rawGrant.source_ministry,
-    hasText: !!rawGrant.raw_text,
+    source: payload.source,
+    ministry: sourceMinistry,
+    hasText: !!rawText,
   });
 
   // 次のジョブ: AI解析をQueue投入
@@ -228,6 +261,50 @@ export async function handleAnalyze(
     rank: analysis.minamata_fit_rank,
     score: analysis.minamata_fit_score,
   });
+}
+
+/**
+ * 既存の解析結果を削除し、AI解析ジョブをQueueに再投入する
+ * grantIds未指定なら全件、指定ありならその補助金のみ対象
+ */
+export async function reanalyzeGrants(
+  env: Env,
+  grantIds?: number[]
+): Promise<{ requeued: number }> {
+  const db = drizzle(env.DB);
+
+  const targetIds =
+    grantIds && grantIds.length > 0
+      ? grantIds
+      : (await db.select({ id: grants.id }).from(grants)).map((g) => g.id);
+
+  if (targetIds.length === 0) {
+    return { requeued: 0 };
+  }
+
+  // 既存の解析結果を削除（handleAnalyzeは既存解析があるとスキップするため）
+  // D1のバインド変数上限に収まるよう分割実行
+  const DELETE_CHUNK_SIZE = 50;
+  for (let i = 0; i < targetIds.length; i += DELETE_CHUNK_SIZE) {
+    const chunk = targetIds.slice(i, i + DELETE_CHUNK_SIZE);
+    await db.delete(grantAiAnalyses).where(inArray(grantAiAnalyses.grantId, chunk));
+  }
+
+  const queueMessages = targetIds.map((id) => ({
+    body: { type: "grant.analyze", payload: { grantId: id } },
+  }));
+
+  const batches = [];
+  for (let i = 0; i < queueMessages.length; i += 100) {
+    batches.push(queueMessages.slice(i, i + 100));
+  }
+  for (const batch of batches) {
+    await env.JOBS.sendBatch(batch);
+  }
+
+  logEvent("info", "reanalyze.requeued", { count: targetIds.length });
+
+  return { requeued: targetIds.length };
 }
 
 /** Upsert a system_meta key */

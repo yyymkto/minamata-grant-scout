@@ -38,7 +38,7 @@ async function searchSubsidies(keyword, targetArea) {
   const res = await fetch(url, {
     headers: {
       Accept: "application/json",
-      "User-Agent": "TaraGrantScout/1.0 (municipal-grant-research)",
+      "User-Agent": "MinamataGrantScout/1.0 (municipal-grant-research)",
     },
   });
 

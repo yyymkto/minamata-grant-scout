@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { grants, grantAiAnalyses, systemMeta } from "../db/schema";
 import type { AppContextEnv } from "../types";
 import { jsonError } from "../lib/http";
-import { ingestGrantList } from "../features/grants/ingest";
+import { ingestGrantList, reanalyzeGrants } from "../features/grants/ingest";
 
 const app = new Hono<AppContextEnv>()
   // LIST with SQL-level filters
@@ -145,6 +145,24 @@ const app = new Hono<AppContextEnv>()
     }
 
     const result = await ingestGrantList(c.env);
+    return c.json(result);
+  })
+  // 既存データの再解析トリガー（ADMIN_SECRET必須）。body { ids?: number[] } 省略時は全件
+  .post("/reanalyze", async (c) => {
+    const secret = c.req.header("x-admin-secret");
+    if (!c.env.ADMIN_SECRET || secret !== c.env.ADMIN_SECRET) {
+      return jsonError(c, 401, "unauthorized", "Invalid admin secret");
+    }
+
+    let ids: number[] | undefined;
+    try {
+      const body = await c.req.json<{ ids?: number[] }>();
+      ids = body?.ids;
+    } catch {
+      ids = undefined;
+    }
+
+    const result = await reanalyzeGrants(c.env, ids);
     return c.json(result);
   });
 

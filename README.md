@@ -1,6 +1,6 @@
 # 補助金スカウト @水俣
 
-水俣市向け補助金AI発見システム。全省庁の補助金情報を毎日自動収集し、AIが水俣市との相性を判定・スコアリングする。
+水俣市向け補助金AI発見システム。国（全省庁）と熊本県独自の補助金情報を毎日自動収集し、AIが水俣市との相性を判定・スコアリングする。
 
 **https://minamata-grant-scout.yyymkto.workers.dev**
 
@@ -8,10 +8,11 @@
 
 ```
 Cron Trigger (毎日 JST 6:00)
-  → jGrants API から一覧取得 → D1 に新規保存 → Queue 投入
+  → jGrants API（国・全省庁）+ 熊本県公式サイトRSS（県独自制度）から一覧取得
+    → D1 に新規保存 → Queue 投入
 
 Queue Consumer
-  → grant.fetch_detail: 詳細取得 → D1 更新
+  → grant.fetch_detail: 詳細取得（jGrantsはAPI、熊本県は記事本文をスクレイピング）→ D1 更新
   → grant.analyze: Cloudflare Workers AI で AI 解析 → D1 に結果保存
 
 Web UI (React SPA)
@@ -19,7 +20,7 @@ Web UI (React SPA)
   → GET /api/grants/:id → 詳細 + AI 解析結果
 ```
 
-Cloudflare 完結（Workers + D1 + Queues + Workers AI + Cron Triggers）。外部依存は jGrants API のみ（任意で OpenAI / Kimi API フォールバックも可能）。
+Cloudflare 完結（Workers + D1 + Queues + Workers AI + Cron Triggers）。外部依存は jGrants API と熊本県公式サイト（任意で OpenAI / Kimi API フォールバックも可能）。
 
 ## スタック
 
@@ -31,7 +32,8 @@ Cloudflare 完結（Workers + D1 + Queues + Workers AI + Cron Triggers）。外�
 | 非同期処理 | Cloudflare Queues |
 | 定期実行 | Cron Triggers |
 | AI 解析 | Cloudflare Workers AI (Llama 3.3 70B / Qwen 2.5 72B) |
-| データソース | jGrants API (デジタル庁、対象地域: 全国 + 熊本県) |
+| データソース1 | jGrants API (デジタル庁、対象地域: 全国 + 熊本県) — 国の補助金 |
+| データソース2 | 熊本県公式サイト RSS（8部署の新着情報） — 県独自の補助金 |
 | Build | Vite + @cloudflare/vite-plugin |
 
 ## クイックスタート
@@ -91,6 +93,7 @@ UI ではデフォルトで A・B ランクのみ表示（C は除外）。評�
 | `GET /api/grants/status` | ステータス（件数・最終更新日時） |
 | `GET /api/grants/:id` | 詳細 + AI 解析結果 |
 | `POST /api/grants/ingest` | 手動 ingest トリガー（要 `x-admin-secret`） |
+| `POST /api/grants/reanalyze` | 既存データの再解析トリガー（要 `x-admin-secret`。body `{ ids?: number[] }` 省略時は全件） |
 | `GET /api/health` | ヘルスチェック |
 
 ## ディレクトリ構成
@@ -103,11 +106,12 @@ minamata-grant-scout/
 │   └── pages/grants/             一覧・詳細ページ
 ├── src/                          Worker backend
 │   ├── features/grants/          ingest パイプライン (TS)
-│   │   ├── jgrants-source.ts     jGrants API クライアント（対象地域: 全国 + 熊本県）
-│   │   ├── analyzer.ts           Workers AI（+ OpenAI/Kimi フォールバック）AI 解析
-│   │   ├── ingest.ts             オーケストレータ
-│   │   ├── json-parser.ts        LLM 出力パーサー
-│   │   └── minamata-profile.ts   水俣市プロファイル
+│   │   ├── jgrants-source.ts        jGrants API クライアント（対象地域: 全国 + 熊本県）
+│   │   ├── kumamoto-pref-source.ts  熊本県公式サイト RSS クライアント（県独自制度）
+│   │   ├── analyzer.ts              Workers AI（+ OpenAI/Kimi フォールバック）AI 解析
+│   │   ├── ingest.ts                オーケストレータ
+│   │   ├── json-parser.ts           LLM 出力パーサー
+│   │   └── minamata-profile.ts      水俣市プロファイル
 │   ├── db/schema.ts              Drizzle schema
 │   ├── routes/grants.ts          補助金 API
 │   └── index.ts                  Worker entry (fetch + cron + queue)

@@ -60,7 +60,7 @@ async function searchSubsidies(keyword: string, targetArea: string): Promise<JGr
   const res = await fetch(`${LIST_URL}?${params}`, {
     headers: {
       Accept: "application/json",
-      "User-Agent": "TaraGrantScout/1.0 (municipal-grant-research)",
+      "User-Agent": "MinamataGrantScout/1.0 (municipal-grant-research)",
     },
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });

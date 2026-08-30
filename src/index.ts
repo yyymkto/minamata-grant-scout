@@ -88,7 +88,10 @@ export default {
       try {
         switch (type) {
           case "grant.fetch_detail":
-            await handleFetchDetail(env, payload as { grantId: number; jgrantsId: string });
+            await handleFetchDetail(
+              env,
+              payload as { grantId: number; source?: "jgrants" | "kumamoto_pref"; jgrantsId?: string }
+            );
             break;
           case "grant.analyze":
             await handleAnalyze(env, payload as { grantId: number });
