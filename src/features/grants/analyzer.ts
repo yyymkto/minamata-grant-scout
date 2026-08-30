@@ -177,7 +177,7 @@ export interface AnalysisResult {
 const WORKERS_AI_MODELS = [
   "@cf/qwen/qwen3-30b-a3b-fp8",
   "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-  "@cf/qwen/qwen2.5-72b-instruct",
+  "@cf/qwen/qwen3.8-27b",
 ] as const;
 
 /** Call Cloudflare Workers AI native binding */
