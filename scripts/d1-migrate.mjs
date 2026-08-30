@@ -28,8 +28,11 @@ try {
     skipExisting: true,
   });
 
-  const args = ["d1", "migrations", "apply", dbName, mode, "--persist-to", resolve(cwd, ".wrangler/state")];
-  const result = spawnSync("wrangler", args, { stdio: "inherit", cwd: tempDir });
+  const args = ["d1", "migrations", "apply", dbName, mode];
+  if (mode === "--local") {
+    args.push("--persist-to", resolve(cwd, ".wrangler/state"));
+  }
+  const result = spawnSync("wrangler", args, { stdio: "inherit", cwd: tempDir, shell: true });
   if (result.error) {
     console.error(result.error.message);
     process.exit(1);

@@ -14,11 +14,11 @@ export type GrantSummary = {
   categoryRaw: string | null;
   createdAt: string;
   summaryShort: string | null;
-  taraFitRank: string | null;
-  taraFitScore: number | null;
+  minamataFitRank: string | null;
+  minamataFitScore: number | null;
   maxAmount: string | null;
   suggestedDepartment: string | null;
-  taraCategories: string | null;
+  minamataCategories: string | null;
 };
 
 export type GrantAiAnalysis = {
@@ -33,13 +33,13 @@ export type GrantAiAnalysis = {
   requiredDocuments: string | null;
   notes: string | null;
   aiConfidence: number | null;
-  taraFitRank: string | null;
-  taraFitScore: number | null;
-  taraFitReason: string | null;
+  minamataFitRank: string | null;
+  minamataFitScore: number | null;
+  minamataFitReason: string | null;
   suggestedDepartment: string | null;
   suggestedDepartmentReason: string | null;
-  taraUseCase: string | null;
-  taraCategories: string | null;
+  minamataUseCase: string | null;
+  minamataCategories: string | null;
 };
 
 export type GrantDetail = {

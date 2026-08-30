@@ -5,7 +5,7 @@
  * API: https://api.jgrants-portal.go.jp/exp/v1/public/subsidies
  * 認証不要・レート制限は明記なし
  *
- * 戦略: 「全国」と「佐賀県」の募集中補助金を全取得
+ * 戦略: 「全国」と「熊本県」の募集中補助金を全取得
  */
 
 export const label = "jGrants（全省庁統合）";
@@ -14,8 +14,8 @@ const API_BASE = "https://api.jgrants-portal.go.jp/exp";
 const LIST_URL = `${API_BASE}/v1/public/subsidies`;
 const DETAIL_URL = `${API_BASE}/v2/public/subsidies/id`;
 
-// 太良町に関連する地域
-const TARGET_AREAS = ["全国", "佐賀県"];
+// 水俣市に関連する地域
+const TARGET_AREAS = ["全国", "熊本県"];
 
 // 検索キーワード（2文字以上必須）
 const KEYWORDS = ["補助金", "交付金", "助成金", "支援事業"];

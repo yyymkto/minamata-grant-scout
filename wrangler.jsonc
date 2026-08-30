@@ -1,13 +1,13 @@
 {
-  "name": "tara-grant-scout",
+  "name": "minamata-grant-scout",
   "compatibility_date": "2025-12-30",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./src/index.ts",
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "tara-grant-scout-db",
-      "database_id": "c8ba9253-bbc0-43fc-a8f3-abf9437c2881",
+      "database_name": "minamata-grant-scout-db",
+      "database_id": "8d46f044-9799-4280-aecd-ac6b74bfc8a9",
       "migrations_dir": "./migrations"
     }
   ],
@@ -24,12 +24,12 @@
     "producers": [
       {
         "binding": "JOBS",
-        "queue": "tara-grant-scout-jobs"
+        "queue": "minamata-grant-scout-jobs"
       }
     ],
     "consumers": [
       {
-        "queue": "tara-grant-scout-jobs",
+        "queue": "minamata-grant-scout-jobs",
         "max_batch_size": 5,
         "max_batch_timeout": 30,
         "max_retries": 3

@@ -39,19 +39,19 @@ export const grantAiAnalyses = sqliteTable(
     requiredDocuments: text("required_documents"),
     notes: text("notes"),
     aiConfidence: integer("ai_confidence"),
-    taraFitRank: text("tara_fit_rank"),
-    taraFitScore: integer("tara_fit_score"),
-    taraFitReason: text("tara_fit_reason"),
+    minamataFitRank: text("minamata_fit_rank"),
+    minamataFitScore: integer("minamata_fit_score"),
+    minamataFitReason: text("minamata_fit_reason"),
     suggestedDepartment: text("suggested_department"),
     suggestedDepartmentReason: text("suggested_department_reason"),
-    taraUseCase: text("tara_use_case"),
-    taraCategories: text("tara_categories"),
+    minamataUseCase: text("minamata_use_case"),
+    minamataCategories: text("minamata_categories"),
     createdAt: text("created_at").notNull().default("(datetime('now'))"),
     updatedAt: text("updated_at").notNull().default("(datetime('now'))"),
   },
   (table) => [
     index("idx_grant_ai_analyses_grant_id").on(table.grantId),
-    index("idx_grant_ai_analyses_tara_fit_rank").on(table.taraFitRank),
+    index("idx_grant_ai_analyses_minamata_fit_rank").on(table.minamataFitRank),
   ]
 );
 

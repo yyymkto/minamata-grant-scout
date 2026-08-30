@@ -199,9 +199,9 @@ export async function handleAnalyze(
     throw new Error(`AI analysis failed for grant ${payload.grantId}`); // retryさせる
   }
 
-  const categories = Array.isArray(analysis.tara_categories)
-    ? analysis.tara_categories.join(",")
-    : analysis.tara_categories ?? null;
+  const categories = Array.isArray(analysis.minamata_categories)
+    ? analysis.minamata_categories.join(",")
+    : analysis.minamata_categories ?? null;
 
   await db.insert(grantAiAnalyses).values({
     grantId: payload.grantId,
@@ -214,19 +214,19 @@ export async function handleAnalyze(
     requiredDocuments: analysis.required_documents,
     notes: analysis.notes,
     aiConfidence: analysis.ai_confidence,
-    taraFitRank: analysis.tara_fit_rank,
-    taraFitScore: analysis.tara_fit_score,
-    taraFitReason: analysis.tara_fit_reason,
+    minamataFitRank: analysis.minamata_fit_rank,
+    minamataFitScore: analysis.minamata_fit_score,
+    minamataFitReason: analysis.minamata_fit_reason,
     suggestedDepartment: analysis.suggested_department,
     suggestedDepartmentReason: analysis.suggested_department_reason,
-    taraUseCase: analysis.tara_use_case,
-    taraCategories: categories,
+    minamataUseCase: analysis.minamata_use_case,
+    minamataCategories: categories,
   }).onConflictDoNothing();
 
   logEvent("info", "job.analyze.done", {
     grantId: payload.grantId,
-    rank: analysis.tara_fit_rank,
-    score: analysis.tara_fit_score,
+    rank: analysis.minamata_fit_rank,
+    score: analysis.minamata_fit_score,
   });
 }
 

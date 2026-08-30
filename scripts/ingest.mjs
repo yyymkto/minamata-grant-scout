@@ -81,6 +81,7 @@ function execSql(sql) {
   const result = spawnSync("npx", ["wrangler", "d1", "execute", dbName, mode, "--command", sql], {
     stdio: "pipe",
     encoding: "utf-8",
+    shell: true,
   });
   if (result.status !== 0) {
     console.error(`  [db-error] ${result.stderr || result.stdout}`);
@@ -93,6 +94,7 @@ function execSqlJson(sql) {
   const result = spawnSync("npx", ["wrangler", "d1", "execute", dbName, mode, "--command", sql, "--json"], {
     stdio: "pipe",
     encoding: "utf-8",
+    shell: true,
   });
   if (result.status !== 0) return null;
   try {
@@ -154,12 +156,12 @@ if (reanalyze) {
         // 既存の解析結果を削除
         execSql(`DELETE FROM grant_ai_analyses WHERE grant_id = ${grant.id}`);
 
-        const analysisSql = `INSERT INTO grant_ai_analyses (grant_id, summary_short, support_type, target_entities, max_amount, subsidy_rate, eligible_themes, required_documents, notes, ai_confidence, tara_fit_rank, tara_fit_score, tara_fit_reason, suggested_department, suggested_department_reason, tara_use_case, tara_categories)
-           VALUES (${grant.id}, ${esc(analysis.summary_short)}, ${esc(analysis.support_type)}, ${esc(analysis.target_entities)}, ${esc(analysis.max_amount)}, ${esc(analysis.subsidy_rate)}, ${esc(analysis.eligible_themes)}, ${esc(analysis.required_documents)}, ${esc(analysis.notes)}, ${analysis.ai_confidence ?? "NULL"}, ${esc(analysis.tara_fit_rank)}, ${analysis.tara_fit_score ?? "NULL"}, ${esc(analysis.tara_fit_reason)}, ${esc(analysis.suggested_department)}, ${esc(analysis.suggested_department_reason)}, ${esc(analysis.tara_use_case)}, ${esc(Array.isArray(analysis.tara_categories) ? analysis.tara_categories.join(",") : analysis.tara_categories ?? null)})`;
+        const analysisSql = `INSERT INTO grant_ai_analyses (grant_id, summary_short, support_type, target_entities, max_amount, subsidy_rate, eligible_themes, required_documents, notes, ai_confidence, minamata_fit_rank, minamata_fit_score, minamata_fit_reason, suggested_department, suggested_department_reason, minamata_use_case, minamata_categories)
+           VALUES (${grant.id}, ${esc(analysis.summary_short)}, ${esc(analysis.support_type)}, ${esc(analysis.target_entities)}, ${esc(analysis.max_amount)}, ${esc(analysis.subsidy_rate)}, ${esc(analysis.eligible_themes)}, ${esc(analysis.required_documents)}, ${esc(analysis.notes)}, ${analysis.ai_confidence ?? "NULL"}, ${esc(analysis.minamata_fit_rank)}, ${analysis.minamata_fit_score ?? "NULL"}, ${esc(analysis.minamata_fit_reason)}, ${esc(analysis.suggested_department)}, ${esc(analysis.suggested_department_reason)}, ${esc(analysis.minamata_use_case)}, ${esc(Array.isArray(analysis.minamata_categories) ? analysis.minamata_categories.join(",") : analysis.minamata_categories ?? null)})`;
 
         if (execSql(analysisSql)) {
           totalAnalyzed++;
-          console.log(`    ✓ ランク${analysis.tara_fit_rank} (${analysis.tara_fit_score}点)`);
+          console.log(`    ✓ ランク${analysis.minamata_fit_rank} (${analysis.minamata_fit_score}点)`);
         }
       } else {
         totalAnalysisFailed++;
@@ -203,12 +205,12 @@ if (analyzeOnly) {
       });
 
       if (analysis) {
-        const analysisSql = `INSERT INTO grant_ai_analyses (grant_id, summary_short, support_type, target_entities, max_amount, subsidy_rate, eligible_themes, required_documents, notes, ai_confidence, tara_fit_rank, tara_fit_score, tara_fit_reason, suggested_department, suggested_department_reason, tara_use_case, tara_categories)
-           VALUES (${grant.id}, ${esc(analysis.summary_short)}, ${esc(analysis.support_type)}, ${esc(analysis.target_entities)}, ${esc(analysis.max_amount)}, ${esc(analysis.subsidy_rate)}, ${esc(analysis.eligible_themes)}, ${esc(analysis.required_documents)}, ${esc(analysis.notes)}, ${analysis.ai_confidence ?? "NULL"}, ${esc(analysis.tara_fit_rank)}, ${analysis.tara_fit_score ?? "NULL"}, ${esc(analysis.tara_fit_reason)}, ${esc(analysis.suggested_department)}, ${esc(analysis.suggested_department_reason)}, ${esc(analysis.tara_use_case)}, ${esc(Array.isArray(analysis.tara_categories) ? analysis.tara_categories.join(",") : analysis.tara_categories ?? null)})`;
+        const analysisSql = `INSERT INTO grant_ai_analyses (grant_id, summary_short, support_type, target_entities, max_amount, subsidy_rate, eligible_themes, required_documents, notes, ai_confidence, minamata_fit_rank, minamata_fit_score, minamata_fit_reason, suggested_department, suggested_department_reason, minamata_use_case, minamata_categories)
+           VALUES (${grant.id}, ${esc(analysis.summary_short)}, ${esc(analysis.support_type)}, ${esc(analysis.target_entities)}, ${esc(analysis.max_amount)}, ${esc(analysis.subsidy_rate)}, ${esc(analysis.eligible_themes)}, ${esc(analysis.required_documents)}, ${esc(analysis.notes)}, ${analysis.ai_confidence ?? "NULL"}, ${esc(analysis.minamata_fit_rank)}, ${analysis.minamata_fit_score ?? "NULL"}, ${esc(analysis.minamata_fit_reason)}, ${esc(analysis.suggested_department)}, ${esc(analysis.suggested_department_reason)}, ${esc(analysis.minamata_use_case)}, ${esc(Array.isArray(analysis.minamata_categories) ? analysis.minamata_categories.join(",") : analysis.minamata_categories ?? null)})`;
 
         if (execSql(analysisSql)) {
           totalAnalyzed++;
-          console.log(`    ✓ ランク${analysis.tara_fit_rank} (${analysis.tara_fit_score}点)`);
+          console.log(`    ✓ ランク${analysis.minamata_fit_rank} (${analysis.minamata_fit_score}点)`);
         }
       } else {
         totalAnalysisFailed++;
@@ -294,12 +296,12 @@ for (const name of sourceNames) {
           const grantId = grantRow?.[0]?.results?.[0]?.id;
 
           if (grantId) {
-            const analysisSql = `INSERT INTO grant_ai_analyses (grant_id, summary_short, support_type, target_entities, max_amount, subsidy_rate, eligible_themes, required_documents, notes, ai_confidence, tara_fit_rank, tara_fit_score, tara_fit_reason, suggested_department, suggested_department_reason, tara_use_case, tara_categories)
-               VALUES (${grantId}, ${esc(analysis.summary_short)}, ${esc(analysis.support_type)}, ${esc(analysis.target_entities)}, ${esc(analysis.max_amount)}, ${esc(analysis.subsidy_rate)}, ${esc(analysis.eligible_themes)}, ${esc(analysis.required_documents)}, ${esc(analysis.notes)}, ${analysis.ai_confidence ?? "NULL"}, ${esc(analysis.tara_fit_rank)}, ${analysis.tara_fit_score ?? "NULL"}, ${esc(analysis.tara_fit_reason)}, ${esc(analysis.suggested_department)}, ${esc(analysis.suggested_department_reason)}, ${esc(analysis.tara_use_case)}, ${esc(Array.isArray(analysis.tara_categories) ? analysis.tara_categories.join(",") : analysis.tara_categories ?? null)})`;
+            const analysisSql = `INSERT INTO grant_ai_analyses (grant_id, summary_short, support_type, target_entities, max_amount, subsidy_rate, eligible_themes, required_documents, notes, ai_confidence, minamata_fit_rank, minamata_fit_score, minamata_fit_reason, suggested_department, suggested_department_reason, minamata_use_case, minamata_categories)
+               VALUES (${grantId}, ${esc(analysis.summary_short)}, ${esc(analysis.support_type)}, ${esc(analysis.target_entities)}, ${esc(analysis.max_amount)}, ${esc(analysis.subsidy_rate)}, ${esc(analysis.eligible_themes)}, ${esc(analysis.required_documents)}, ${esc(analysis.notes)}, ${analysis.ai_confidence ?? "NULL"}, ${esc(analysis.minamata_fit_rank)}, ${analysis.minamata_fit_score ?? "NULL"}, ${esc(analysis.minamata_fit_reason)}, ${esc(analysis.suggested_department)}, ${esc(analysis.suggested_department_reason)}, ${esc(analysis.minamata_use_case)}, ${esc(Array.isArray(analysis.minamata_categories) ? analysis.minamata_categories.join(",") : analysis.minamata_categories ?? null)})`;
 
             if (execSql(analysisSql)) {
               totalAnalyzed++;
-              console.log(`    ✓ ランク${analysis.tara_fit_rank} (${analysis.tara_fit_score}点)`);
+              console.log(`    ✓ ランク${analysis.minamata_fit_rank} (${analysis.minamata_fit_score}点)`);
             }
           }
         } else {

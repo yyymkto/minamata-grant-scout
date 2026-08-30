@@ -25,10 +25,10 @@ const app = new Hono<AppContextEnv>()
 
     // Rank filter (default: exclude C)
     if (rank) {
-      conditions.push(eq(grantAiAnalyses.taraFitRank, rank));
+      conditions.push(eq(grantAiAnalyses.minamataFitRank, rank));
     } else {
       conditions.push(
-        or(ne(grantAiAnalyses.taraFitRank, "C"), isNull(grantAiAnalyses.taraFitRank))!
+        or(ne(grantAiAnalyses.minamataFitRank, "C"), isNull(grantAiAnalyses.minamataFitRank))!
       );
     }
 
@@ -45,10 +45,10 @@ const app = new Hono<AppContextEnv>()
     if (category) {
       conditions.push(
         or(
-          like(grantAiAnalyses.taraCategories, `${category},%`),
-          like(grantAiAnalyses.taraCategories, `%,${category},%`),
-          like(grantAiAnalyses.taraCategories, `%,${category}`),
-          eq(grantAiAnalyses.taraCategories, category)
+          like(grantAiAnalyses.minamataCategories, `${category},%`),
+          like(grantAiAnalyses.minamataCategories, `%,${category},%`),
+          like(grantAiAnalyses.minamataCategories, `%,${category}`),
+          eq(grantAiAnalyses.minamataCategories, category)
         )!
       );
     }
@@ -75,11 +75,11 @@ const app = new Hono<AppContextEnv>()
         categoryRaw: grants.categoryRaw,
         createdAt: grants.createdAt,
         summaryShort: grantAiAnalyses.summaryShort,
-        taraFitRank: grantAiAnalyses.taraFitRank,
-        taraFitScore: grantAiAnalyses.taraFitScore,
+        minamataFitRank: grantAiAnalyses.minamataFitRank,
+        minamataFitScore: grantAiAnalyses.minamataFitScore,
         suggestedDepartment: grantAiAnalyses.suggestedDepartment,
         maxAmount: grantAiAnalyses.maxAmount,
-        taraCategories: grantAiAnalyses.taraCategories,
+        minamataCategories: grantAiAnalyses.minamataCategories,
       })
       .from(grants)
       .leftJoin(grantAiAnalyses, eq(grants.id, grantAiAnalyses.grantId))

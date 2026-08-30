@@ -1,8 +1,8 @@
-# 補助金スカウト @太良
+# 補助金スカウト @水俣
 
-太良町向け補助金AI発見システム。全省庁の補助金情報を毎日自動収集し、AIが太良町との相性を判定・スコアリングする。
+水俣市向け補助金AI発見システム。全省庁の補助金情報を毎日自動収集し、AIが水俣市との相性を判定・スコアリングする。
 
-**https://tara-grant-scout.ichevi.workers.dev**
+**https://minamata-grant-scout.yyymkto.workers.dev**
 
 ## アーキテクチャ
 
@@ -31,7 +31,7 @@ Cloudflare 完結（Workers + D1 + Queues + Workers AI + Cron Triggers）。外�
 | 非同期処理 | Cloudflare Queues |
 | 定期実行 | Cron Triggers |
 | AI 解析 | Cloudflare Workers AI (Llama 3.3 70B / Qwen 2.5 72B) |
-| データソース | jGrants API (デジタル庁) |
+| データソース | jGrants API (デジタル庁、対象地域: 全国 + 熊本県) |
 | Build | Vite + @cloudflare/vite-plugin |
 
 ## クイックスタート
@@ -42,7 +42,7 @@ npm run db:migrate
 npm run dev
 ```
 
-`http://localhost:5173` で一覧が見れる（認証不要）。
+`http://localhost:5173` で一覧が見れる（認証不要）。ローカルでサンプルデータを試すには `npm run seed` で水俣市向けのサンプル補助金データを投入できる。
 
 ## データ取り込み
 
@@ -55,7 +55,7 @@ Cron Trigger が毎日 JST 6:00 に自動実行。新規補助金を検出 → Q
 ```bash
 # リモートで手動ingest
 curl -X POST -H "x-admin-secret: $ADMIN_SECRET" \
-  https://tara-grant-scout.ichevi.workers.dev/api/grants/ingest
+  https://minamata-grant-scout.yyymkto.workers.dev/api/grants/ingest
 ```
 
 ### ローカル CLI（レガシー、引き続き使用可）
@@ -73,15 +73,15 @@ npm run ingest -- --remote        # リモートD1に書き込み
 
 | フィールド | 内容 |
 |---|---|
-| `tara_fit_score` | 4軸ルーブリック採点（申請主体適格性:25点、産業合致度:35点、補助実効性:20点、実現性:20点）による 0〜100点 の適合スコア |
-| `tara_fit_rank` | スコアに基づく自動ランク判定: A（75点以上・有望）/ B（50〜74点・検討余地あり）/ C（49点以下・関連薄い） |
-| `tara_fit_reason` | 4軸評価に基づく太良町への適合理由 |
-| `tara_use_case` | 太良町の資源・課題を踏まえた具体的な活用仮説 |
-| `tara_categories` | カテゴリ分類（農業、漁業、林業、旅館・観光 等） |
+| `minamata_fit_score` | 4軸ルーブリック採点（申請主体適格性:25点、産業合致度:35点、補助実効性:20点、実現性:20点）による 0〜100点 の適合スコア |
+| `minamata_fit_rank` | スコアに基づく自動ランク判定: A（75点以上・有望）/ B（50〜74点・検討余地あり）/ C（49点以下・関連薄い） |
+| `minamata_fit_reason` | 4軸評価に基づく水俣市への適合理由 |
+| `minamata_use_case` | 水俣市の資源・課題を踏まえた具体的な活用仮説 |
+| `minamata_categories` | カテゴリ分類（農業、漁業、旅館・観光、環境・エネルギー 等） |
 | `summary_short` | 【対象】【使途】【補助】【アクション】の構造化サマリー |
 | `max_amount` | 補助額上限 |
 
-UI ではデフォルトで A・B ランクのみ表示（C は除外）。
+UI ではデフォルトで A・B ランクのみ表示（C は除外）。評価ルーブリックと水俣市プロファイルは `src/features/grants/analyzer.ts` の `SYSTEM_PROMPT` と `src/features/grants/minamata-profile.ts` で管理している。
 
 ## API
 
@@ -96,23 +96,24 @@ UI ではデフォルトで A・B ランクのみ表示（C は除外）。
 ## ディレクトリ構成
 
 ```
-tara-grant-scout/
+minamata-grant-scout/
 ├── app/                          React UI
 │   ├── components/AppShell.tsx   レイアウト + フッター
 │   ├── hooks/useGrants.ts        データフック
 │   └── pages/grants/             一覧・詳細ページ
 ├── src/                          Worker backend
 │   ├── features/grants/          ingest パイプライン (TS)
-│   │   ├── jgrants-source.ts     jGrants API クライアント
-│   │   ├── analyzer.ts           Kimi K2.5 AI 解析
+│   │   ├── jgrants-source.ts     jGrants API クライアント（対象地域: 全国 + 熊本県）
+│   │   ├── analyzer.ts           Workers AI（+ OpenAI/Kimi フォールバック）AI 解析
 │   │   ├── ingest.ts             オーケストレータ
 │   │   ├── json-parser.ts        LLM 出力パーサー
-│   │   └── tara-profile.ts       太良町プロファイル
+│   │   └── minamata-profile.ts   水俣市プロファイル
 │   ├── db/schema.ts              Drizzle schema
 │   ├── routes/grants.ts          補助金 API
 │   └── index.ts                  Worker entry (fetch + cron + queue)
 ├── scripts/                      ローカル CLI (レガシー)
 │   ├── ingest.mjs
+│   ├── seed-grants.mjs           水俣市向けサンプルデータ投入
 │   ├── sources/jgrants.mjs
 │   └── lib/analyzer.mjs
 └── migrations/                   D1 マイグレーション
@@ -121,13 +122,15 @@ tara-grant-scout/
 ## デプロイ
 
 ```bash
+# 事前に Cloudflare で D1 データベースと Queue を作成し、
+# wrangler.jsonc の database_id・queue 名を発行された値に更新してください
+
 # シークレット設定（初回のみ）
-wrangler secret put KIMI_API_KEY
 wrangler secret put OPENAI_API_KEY   # GPT-4o-mini fallback（任意）
+wrangler secret put KIMI_API_KEY     # Kimi K2.5 fallback（任意）
 wrangler secret put ADMIN_SECRET
 
 # マイグレーション + デプロイ
 npm run db:migrate:remote
 npm run deploy
 ```
-

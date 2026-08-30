@@ -1,7 +1,7 @@
 {
-  "name": "tara-grant-scout",
+  "name": "minamata-grant-scout",
   "version": "1.0.0",
-  "description": "太良町向け補助金AIスカウトシステム — jGrants API + Kimi K2.5 + Cloudflare Workers",
+  "description": "水俣市向け補助金AIスカウトシステム — jGrants API + Cloudflare Workers AI + Cloudflare Workers",
   "license": "UNLICENSED",
   "type": "module",
   "engines": {
@@ -17,7 +17,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/d1-migrate.mjs",
     "db:migrate:remote": "node scripts/d1-migrate.mjs remote",
-    "ingest": "node scripts/ingest.mjs"
+    "ingest": "node scripts/ingest.mjs",
+    "seed": "node scripts/seed-grants.mjs",
+    "seed:remote": "node scripts/seed-grants.mjs --remote"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.5",

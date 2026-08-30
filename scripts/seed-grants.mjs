@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * seed-grants.mjs — 太良町向けリアルな補助金サンプルデータを投入
+ * seed-grants.mjs — 水俣市向けリアルな補助金サンプルデータを投入
  *
  * Usage:
  *   node scripts/seed-grants.mjs          # ローカルD1
@@ -10,6 +10,9 @@
 
 import { spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { getPrimaryD1DatabaseName, readWranglerConfig } from "./lib/wrangler-config.mjs";
 
 const { values } = parseArgs({
@@ -51,10 +54,10 @@ const GRANTS = [
       confidence: 85,
       rank: "A",
       score: 88,
-      reason: "太良町の行政DX推進と遠隔医療ニーズに直接合致。高齢化率40%超の町で遠隔診療や移動支援のデジタル化は大きな効果が期待できる。",
-      dept: "企画商工課",
-      deptReason: "デジタル田園都市構想は自治体全体のDX推進であり、企画部門が主導するのが一般的。",
-      useCase: "太良病院と地域をつなぐ遠隔診療システムの構築、高齢者向けオンデマンド交通予約アプリの導入、農業IoTセンサーによるみかん園管理の効率化。",
+      reason: "水俣市の行政DX推進と遠隔医療ニーズに直接合致。人口減少・高齢化が進む市で遠隔診療や移動支援のデジタル化は大きな効果が期待できる。",
+      dept: "地域振興課",
+      deptReason: "デジタル田園都市構想は自治体全体のDX推進であり、企画・地域振興部門が主導するのが一般的。",
+      useCase: "市立病院と地域をつなぐ遠隔診療システムの構築、高齢者向けオンデマンド交通予約アプリの導入、柑橘農家向け農業IoTセンサーの導入。",
     },
   },
   {
@@ -75,11 +78,11 @@ const GRANTS = [
       notes: "地域協議会を設置していることが要件",
       confidence: 90,
       rank: "A",
-      score: 85,
-      reason: "太良町は多良岳山間部からのイノシシ被害が深刻。みかん園や農作物への被害対策は喫緊の課題であり、直接的に活用できる。",
+      score: 83,
+      reason: "水俣市は山間部が多くイノシシ・シカ被害が課題。柑橘園や茶畑への被害対策は喫緊の課題であり、直接的に活用できる。",
       dept: "農林水産課",
       deptReason: "鳥獣被害対策は農林水産課が管轄する業務。",
-      useCase: "多良岳周辺のイノシシ捕獲体制の強化、みかん園への侵入防止柵設置、捕獲したイノシシのジビエ活用による地域資源化。",
+      useCase: "山間部のイノシシ捕獲体制の強化、甘夏・水俣茶の生産地への侵入防止柵設置、捕獲したイノシシのジビエ活用による地域資源化。",
     },
   },
   {
@@ -100,35 +103,35 @@ const GRANTS = [
       notes: "産地水産業強化計画の策定が必要",
       confidence: 80,
       rank: "A",
-      score: 92,
-      reason: "太良町の主要産業である牡蠣養殖・漁業に直接関連。有明海沿岸の養殖施設の近代化や竹崎牡蠣のブランド強化に活用できる。",
+      score: 87,
+      reason: "水俣市の主要産業である不知火海の漁業に直接関連。1997年の水俣湾漁業規制解禁以降、水産資源再生とブランド化を進める市の方針に合致する。",
       dept: "農林水産課",
       deptReason: "水産業関連の補助金は農林水産課が担当。",
-      useCase: "竹崎牡蠣の養殖施設の高度化（水温・塩分モニタリング装置の導入）、漁港の荷さばき施設の改修、有明海の環境モニタリング体制の構築。",
+      useCase: "不知火海沿岸の漁港施設の改修、水揚げされるタチウオ等のブランド化・直販体制の構築、水質・資源モニタリング体制の強化。",
     },
   },
   {
-    title: "過疎地域持続的発展支援交付金",
+    title: "地域アカデミー人材育成支援事業",
     ministry: "総務省",
     url: "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/kaso/index.html",
     published: "2026-01-10",
     deadline: "2026-04-30",
     category: "交付金",
     analysis: {
-      summary: "過疎地域の持続的発展に向け、移住・定住促進、産業振興、交通確保等の取組を支援する交付金。ソフト事業にも対応。",
+      summary: "地方公共団体における人口減少対策として、移住・定住促進、産業振興、地域交通確保等の取組を支援する交付金。ソフト事業にも対応。",
       supportType: "交付金",
-      target: "過疎地域の市町村",
+      target: "人口減少対策に取り組む市町村",
       maxAmount: "3,000万円",
       rate: "1/2〜3/4",
       themes: "移住定住, 産業振興, 地域交通, 集落維持",
-      docs: "過疎地域持続的発展計画, 事業計画書, 効果検証計画",
-      notes: "過疎地域に指定されていることが前提条件",
+      docs: "地域振興計画, 事業計画書, 効果検証計画",
+      notes: "人口減少・高齢化が著しい地域であることが前提条件",
       confidence: 88,
       rank: "A",
-      score: 90,
-      reason: "太良町は過疎地域に指定されており、高齢化・人口減少対策が最重要課題。移住促進や地域交通確保に幅広く活用可能。",
-      dept: "企画商工課",
-      deptReason: "過疎対策・移住定住促進は企画商工課の所管。",
+      score: 89,
+      reason: "水俣市は人口減少・高齢化対策が最重要課題。もやい直し（コミュニティ再生）の取組とも連動させ、移住促進や地域交通確保に幅広く活用可能。",
+      dept: "地域振興課",
+      deptReason: "人口減少対策・移住定住促進は地域振興課の所管。",
       useCase: "移住希望者向けの空き家バンク整備とお試し住居の運営、デマンド型乗合交通の導入による高齢者の移動支援、地域おこし協力隊の活動支援。",
     },
   },
@@ -150,11 +153,11 @@ const GRANTS = [
       notes: "農業者とIT企業の連携（コンソーシアム形成）が必須",
       confidence: 75,
       rank: "B",
-      score: 72,
-      reason: "太良町のみかん栽培へのスマート農業技術導入は有望だが、コンソーシアム形成のハードルが高い。大学や企業との連携体制構築が必要。",
+      score: 70,
+      reason: "水俣市の柑橘・茶栽培へのスマート農業技術導入は有望だが、コンソーシアム形成のハードルが高い。大学や企業との連携体制構築が必要。",
       dept: "農林水産課",
       deptReason: "農業関連の技術実証は農林水産課が窓口。",
-      useCase: "多良岳山間部のみかん園でのドローン活用（農薬散布・生育モニタリング）、AIによる最適収穫時期の予測システムの実証。",
+      useCase: "山間部の柑橘園でのドローン活用（生育モニタリング）、環境保全型農業の効果を可視化するセンサー実証、AIによる最適収穫時期の予測。",
     },
   },
   {
@@ -175,11 +178,11 @@ const GRANTS = [
       notes: "地域公共交通会議での協議が必要",
       confidence: 85,
       rank: "A",
-      score: 87,
-      reason: "太良町は公共交通が限られ、高齢者の移動手段確保が重要課題。デマンド交通やコミュニティバスの導入に直結する。",
-      dept: "企画商工課",
-      deptReason: "地域交通政策は企画商工課が担当。",
-      useCase: "町内デマンド型乗合タクシーの本格導入、太良病院・買い物拠点を結ぶ高齢者向け巡回バスの運行。",
+      score: 86,
+      reason: "水俣市は高齢化が進み、高齢者の移動手段確保が重要課題。デマンド交通やコミュニティバスの導入・維持に直結する。",
+      dept: "地域振興課",
+      deptReason: "地域交通政策は地域振興課が担当。",
+      useCase: "市内デマンド型乗合タクシーの拡充、市立病院・買い物拠点を結ぶ高齢者向け巡回バスの運行維持。",
     },
   },
   {
@@ -198,13 +201,13 @@ const GRANTS = [
       themes: "脱炭素, 再生可能エネルギー, 省エネ, 地域循環",
       docs: "脱炭素先行地域計画提案書, CO2削減計画, 地域合意形成の記録",
       notes: "第5回選定（予定）。計画策定の準備期間が必要",
-      confidence: 70,
-      rank: "B",
-      score: 65,
-      reason: "太良町は脱炭素・再エネに関心ありだが、50億円規模の事業計画策定はハードルが高い。近隣自治体との共同提案なら可能性あり。",
-      dept: "環境水道課",
-      deptReason: "脱炭素・環境政策は環境水道課の所管。",
-      useCase: "公共施設への太陽光パネル設置、多良岳の森林資源を活用したバイオマス発電の検討、有明海の潮流発電の可能性調査。",
+      confidence: 88,
+      rank: "A",
+      score: 90,
+      reason: "水俣市は1992年に全国初の「環境モデル都市づくり宣言」を行い、2008年に国の環境モデル都市に認定された実績を持つ。脱炭素先行地域の趣旨と極めて高い親和性がある。",
+      dept: "環境課",
+      deptReason: "脱炭素・環境政策は環境課の所管。",
+      useCase: "エコタウン地区への再エネ設備の追加導入、公共施設への太陽光パネル設置、環境モデル都市としての知見を活かした地域一体型の脱炭素モデル構築。",
     },
   },
   {
@@ -223,13 +226,13 @@ const GRANTS = [
       themes: "地域医療, 介護, 在宅医療, 人材確保",
       docs: "事業計画書（県経由）, 地域医療構想との整合性説明",
       notes: "都道府県の基金事業として実施。県との連携が必須",
-      confidence: 75,
+      confidence: 78,
       rank: "B",
-      score: 70,
-      reason: "太良病院の維持・強化に活用可能だが、県経由の申請となるため手続きが複雑。在宅医療の推進は高齢化率40%超の太良町に重要。",
-      dept: "健康増進課",
-      deptReason: "医療・介護関連の施策は健康増進課が所管。",
-      useCase: "太良病院を核とした在宅医療・訪問看護体制の強化、介護人材の確保・育成研修の実施。",
+      score: 74,
+      reason: "水俣病対策として恒久的な医療・福祉ニーズを抱える水俣市にとって重要な施策。県経由の申請となるため手続きは複雑だが、高齢化に伴う在宅医療の推進は市の重点課題に合致する。",
+      dept: "いきいき健康課",
+      deptReason: "医療・介護関連の施策はいきいき健康課が所管。",
+      useCase: "在宅医療・訪問看護体制の強化、水俣病被害者を含む高齢者への継続的な医療・介護提供体制の充実、介護人材の確保・育成研修の実施。",
     },
   },
   {
@@ -246,40 +249,40 @@ const GRANTS = [
       maxAmount: "5,000万円",
       rate: "3/4",
       themes: "中小企業支援, 商店街活性化, 観光振興, 特産品開発",
-      docs: "なりわい再生計画, 事業計画書, 商工会等の推薦書",
-      notes: "商工会等との連携が要件",
+      docs: "なりわい再生計画, 事業計画書, 商工会議所等の推薦書",
+      notes: "商工会議所等との連携が要件",
       confidence: 72,
       rank: "B",
       score: 68,
-      reason: "竹崎カニ・牡蠣等の特産品ブランディングや観光振興に活用できるが、「緊急対策」の要件に該当するか確認が必要。",
-      dept: "企画商工課",
-      deptReason: "商工振興・観光政策は企画商工課の担当。",
-      useCase: "竹崎カニ・竹崎牡蠣のブランディング強化、海中鳥居を核とした観光コンテンツの磨き上げ、道の駅的な地域物産拠点の整備。",
+      reason: "甘夏・水俣茶等の特産品ブランディングや湯の児・湯の鶴温泉の観光振興に活用できるが、「緊急対策」の要件に該当するか確認が必要。",
+      dept: "経済観光戦略課",
+      deptReason: "商工振興・観光政策は経済観光戦略課の担当。",
+      useCase: "甘夏・水俣茶のブランディング強化、環境学習ツアーと連携した観光コンテンツの磨き上げ、中心市街地の空き店舗を活用した地域物産拠点の整備。",
     },
   },
   {
-    title: "森林・山村多面的機能発揮対策交付金",
+    title: "みどりの食料システム戦略推進交付金",
     ministry: "農林水産省",
-    url: "https://www.rinya.maff.go.jp/j/sanson/tamen/index.html",
+    url: "https://www.maff.go.jp/j/kanbo/kankyo/seisaku/midori/index.html",
     published: "2026-02-05",
     deadline: "2026-04-20",
     category: "交付金",
     analysis: {
-      summary: "地域住民等が行う森林の保全管理活動（里山林整備、侵入竹除去、森林環境教育等）を支援する交付金。",
+      summary: "有機農業の拡大や化学肥料・農薬の低減など、環境保全型農業への転換を支援する交付金。オーガニックビレッジ推進も対象。",
       supportType: "交付金",
-      target: "地域住民による活動組織",
-      maxAmount: "500万円/活動組織",
-      rate: "定額",
-      themes: "森林保全, 里山整備, 環境教育, 竹林整備",
-      docs: "活動計画書, 活動組織の規約, 対象森林の位置図",
-      notes: "3年間の活動計画が必要。活動組織の設立が前提",
-      confidence: 82,
+      target: "市町村、農業者団体",
+      maxAmount: "1,000万円",
+      rate: "定額・1/2等",
+      themes: "有機農業, 環境保全型農業, オーガニックビレッジ, 化学肥料低減",
+      docs: "推進計画書, 地域農業者との合意形成資料",
+      notes: "オーガニックビレッジ宣言を行う市町村は優先採択枠あり",
+      confidence: 85,
       rank: "A",
-      score: 80,
-      reason: "多良岳の森林資源保全に直接活用可能。里山整備活動を通じた地域コミュニティ維持の効果も期待でき、太良町の課題に合致。",
+      score: 91,
+      reason: "無農薬・環境保全型農業を市を挙げて推進してきた水俣市の歴史・環境マイスター制度と正面から合致する。環境モデル都市としてのブランドを農業分野でも強化できる。",
       dept: "農林水産課",
-      deptReason: "森林・林業関連事業は農林水産課の担当。",
-      useCase: "多良岳周辺の里山林整備活動、放置竹林の除去と竹材の資源化、森林環境教育プログラムの実施。",
+      deptReason: "環境保全型農業の推進は農林水産課の担当。",
+      useCase: "甘夏・水俣茶生産者への環境保全型農業技術の普及支援、環境マイスター認定農家の拡大、オーガニックビレッジ宣言による地域ブランド化。",
     },
   },
   {
@@ -301,10 +304,10 @@ const GRANTS = [
       confidence: 65,
       rank: "B",
       score: 60,
-      reason: "太良町は有明海沿岸で高潮・風水害のリスクあり。インフラ老朽化対策にも使えるが、個別メニューの確認が必要。",
-      dept: "建設課",
-      deptReason: "防災インフラ整備は建設課が主担当。",
-      useCase: "有明海沿岸の高潮対策護岸の強化、町道の法面対策、公共施設の耐震改修。",
+      reason: "水俣市は不知火海沿岸で高潮・風水害のリスクがあり、山間部は土砂災害リスクも抱える。インフラ老朽化対策にも使えるが、個別メニューの確認が必要。",
+      dept: "土木課",
+      deptReason: "防災インフラ整備は土木課が主担当。",
+      useCase: "不知火海沿岸の高潮対策護岸の強化、山間部の急傾斜地対策、公共施設の耐震改修。",
     },
   },
   {
@@ -326,10 +329,10 @@ const GRANTS = [
       confidence: 78,
       rank: "C",
       score: 45,
-      reason: "教育DXは重要だが、太良町固有の課題との直接的な関連は薄い。他の自治体と同様の取組になりやすい。",
-      dept: "総務課",
-      deptReason: "太良町では教育委員会関連業務は総務課が所管する場合がある。",
-      useCase: "小中学校のタブレット端末更新、校内ネットワークの高速化。",
+      reason: "教育DXは重要だが、水俣市固有の課題（環境教育・水俣病の伝承等）との直接的な関連は薄い。他の自治体と同様の取組になりやすい。",
+      dept: "教育課",
+      deptReason: "学校ICT整備・教育DXは教育課の所管。",
+      useCase: "小中学校のタブレット端末更新、校内ネットワークの高速化、水俣病資料館と連携したデジタル環境学習教材の整備。",
     },
   },
 ];
@@ -353,7 +356,7 @@ for (const g of GRANTS) {
   );
 
   statements.push(
-    `INSERT INTO grant_ai_analyses (grant_id, summary_short, support_type, target_entities, max_amount, subsidy_rate, eligible_themes, required_documents, notes, ai_confidence, tara_fit_rank, tara_fit_score, tara_fit_reason, suggested_department, suggested_department_reason, tara_use_case)
+    `INSERT INTO grant_ai_analyses (grant_id, summary_short, support_type, target_entities, max_amount, subsidy_rate, eligible_themes, required_documents, notes, ai_confidence, minamata_fit_rank, minamata_fit_score, minamata_fit_reason, suggested_department, suggested_department_reason, minamata_use_case)
      SELECT g.id, ${esc(a.summary)}, ${esc(a.supportType)}, ${esc(a.target)}, ${esc(a.maxAmount)}, ${esc(a.rate)}, ${esc(a.themes)}, ${esc(a.docs)}, ${esc(a.notes)}, ${a.confidence}, ${esc(a.rank)}, ${a.score}, ${esc(a.reason)}, ${esc(a.dept)}, ${esc(a.deptReason)}, ${esc(a.useCase)}
      FROM grants g WHERE g.source_url = ${esc(g.url)}
      ON CONFLICT(grant_id) DO UPDATE SET
@@ -366,12 +369,12 @@ for (const g of GRANTS) {
        required_documents = excluded.required_documents,
        notes = excluded.notes,
        ai_confidence = excluded.ai_confidence,
-       tara_fit_rank = excluded.tara_fit_rank,
-       tara_fit_score = excluded.tara_fit_score,
-       tara_fit_reason = excluded.tara_fit_reason,
+       minamata_fit_rank = excluded.minamata_fit_rank,
+       minamata_fit_score = excluded.minamata_fit_score,
+       minamata_fit_reason = excluded.minamata_fit_reason,
        suggested_department = excluded.suggested_department,
        suggested_department_reason = excluded.suggested_department_reason,
-       tara_use_case = excluded.tara_use_case,
+       minamata_use_case = excluded.minamata_use_case,
        updated_at = datetime('now');`
   );
 }
@@ -380,9 +383,20 @@ statements.push("COMMIT;");
 
 const sql = statements.join("\n");
 
-const result = spawnSync("wrangler", ["d1", "execute", dbName, mode, "--command", sql], {
-  stdio: "inherit",
-});
+// SQLが長大になるため、コマンドライン引数ではなく一時ファイル経由で渡す（Windowsのコマンドライン長制限を回避）
+const tempDir = mkdtempSync(join(tmpdir(), "minamata-grant-scout-seed-"));
+const sqlFile = join(tempDir, "seed.sql");
+writeFileSync(sqlFile, sql, "utf-8");
+
+let result;
+try {
+  result = spawnSync("wrangler", ["d1", "execute", dbName, mode, "--file", sqlFile], {
+    stdio: "inherit",
+    shell: true,
+  });
+} finally {
+  rmSync(tempDir, { recursive: true, force: true });
+}
 
 if (result.error) {
   console.error(result.error.message);

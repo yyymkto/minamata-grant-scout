@@ -26,15 +26,15 @@ CREATE TABLE grant_ai_analyses (
   required_documents TEXT,
   notes TEXT,
   ai_confidence REAL,
-  tara_fit_rank TEXT,
-  tara_fit_score INTEGER,
-  tara_fit_reason TEXT,
+  minamata_fit_rank TEXT,
+  minamata_fit_score INTEGER,
+  minamata_fit_reason TEXT,
   suggested_department TEXT,
   suggested_department_reason TEXT,
-  tara_use_case TEXT,
+  minamata_use_case TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX idx_grant_ai_analyses_grant_id ON grant_ai_analyses(grant_id);
-CREATE INDEX idx_grant_ai_analyses_tara_fit_rank ON grant_ai_analyses(tara_fit_rank);
+CREATE INDEX idx_grant_ai_analyses_minamata_fit_rank ON grant_ai_analyses(minamata_fit_rank);

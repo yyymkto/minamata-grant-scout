@@ -14,20 +14,20 @@ describe("analysisSchema", () => {
       required_documents: "申請書,事業計画書",
       notes: null,
       ai_confidence: 90,
-      tara_fit_score: 85,
-      tara_fit_rank: "B", // score is 85, should be adjusted to A
-      tara_fit_reason: "太良町のみかん農家に直結する支援",
+      minamata_fit_score: 85,
+      minamata_fit_rank: "B", // score is 85, should be adjusted to A
+      minamata_fit_reason: "水俣市の柑橘農家に直結する支援",
       suggested_department: "農林水産課",
       suggested_department_reason: "農業振興事業のため",
-      tara_use_case: "ハウスみかん農家でのヒートポンプ導入",
-      tara_categories: ["農業"],
+      minamata_use_case: "ハウス柑橘農家でのヒートポンプ導入",
+      minamata_categories: ["農業"],
     };
 
     const parsed = analysisSchema.safeParse(raw);
     expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.tara_fit_rank).toBe("A");
-      expect(parsed.data.tara_fit_score).toBe(85);
+      expect(parsed.data.minamata_fit_rank).toBe("A");
+      expect(parsed.data.minamata_fit_score).toBe(85);
     }
   });
 
@@ -42,20 +42,20 @@ describe("analysisSchema", () => {
       required_documents: null,
       notes: null,
       ai_confidence: 80,
-      tara_fit_score: 60,
-      tara_fit_rank: "A", // score is 60, should be adjusted to B
-      tara_fit_reason: "汎用的なIT導入補助",
-      suggested_department: "企画商工課",
+      minamata_fit_score: 60,
+      minamata_fit_rank: "A", // score is 60, should be adjusted to B
+      minamata_fit_reason: "汎用的なIT導入補助",
+      suggested_department: "経済観光戦略課",
       suggested_department_reason: "商工振興のため",
-      tara_use_case: "町内商店でのPOSレジ導入",
-      tara_categories: ["小規模事業者", "デジタル・IT"],
+      minamata_use_case: "町内商店でのPOSレジ導入",
+      minamata_categories: ["小規模事業者", "デジタル・IT"],
     };
 
     const parsed = analysisSchema.safeParse(raw);
     expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.tara_fit_rank).toBe("B");
-      expect(parsed.data.tara_fit_score).toBe(60);
+      expect(parsed.data.minamata_fit_rank).toBe("B");
+      expect(parsed.data.minamata_fit_score).toBe(60);
     }
   });
 
@@ -70,20 +70,20 @@ describe("analysisSchema", () => {
       required_documents: null,
       notes: null,
       ai_confidence: 95,
-      tara_fit_score: 10,
-      tara_fit_rank: "A",
-      tara_fit_reason: "太良町には大企業・半導体工場がないため対象外",
-      suggested_department: "企画商工課",
+      minamata_fit_score: 10,
+      minamata_fit_rank: "A",
+      minamata_fit_reason: "水俣市には大企業・半導体工場がないため対象外",
+      suggested_department: "経済観光戦略課",
       suggested_department_reason: "産業担当",
-      tara_use_case: "該当なし",
-      tara_categories: [],
+      minamata_use_case: "該当なし",
+      minamata_categories: [],
     };
 
     const parsed = analysisSchema.safeParse(raw);
     expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.tara_fit_rank).toBe("C");
-      expect(parsed.data.tara_fit_score).toBe(10);
+      expect(parsed.data.minamata_fit_rank).toBe("C");
+      expect(parsed.data.minamata_fit_score).toBe(10);
     }
   });
 });
@@ -91,7 +91,7 @@ describe("analysisSchema", () => {
 describe("analyzeGrant with Workers AI", () => {
   it("should call Workers AI binding and return parsed result", async () => {
     const mockJson = {
-      summary_short: "【対象】太良町農家 【使途】スマート農業 【補助】上限300万円 【アクション】JA経由申請",
+      summary_short: "【対象】水俣市農家 【使途】スマート農業 【補助】上限300万円 【アクション】JA経由申請",
       support_type: "補助金",
       target_entities: "農家",
       max_amount: "300万円",
@@ -100,13 +100,13 @@ describe("analyzeGrant with Workers AI", () => {
       required_documents: null,
       notes: null,
       ai_confidence: 85,
-      tara_fit_score: 80,
-      tara_fit_rank: "A",
-      tara_fit_reason: "みかん園の傾斜地での作業省力化に合致",
+      minamata_fit_score: 80,
+      minamata_fit_rank: "A",
+      minamata_fit_reason: "柑橘園の傾斜地での作業省力化に合致",
       suggested_department: "農林水産課",
       suggested_department_reason: "農業担当のため",
-      tara_use_case: "みかん園での散水自動化",
-      tara_categories: ["農業"],
+      minamata_use_case: "柑橘園での散水自動化",
+      minamata_categories: ["農業"],
     };
 
     const mockAi: WorkersAiBinding = {
@@ -132,8 +132,8 @@ describe("analyzeGrant with Workers AI", () => {
 
     expect(mockAi.run).toHaveBeenCalledTimes(1);
     expect(result).not.toBeNull();
-    expect(result?.tara_fit_rank).toBe("A");
-    expect(result?.tara_fit_score).toBe(80);
+    expect(result?.minamata_fit_rank).toBe("A");
+    expect(result?.minamata_fit_score).toBe(80);
     expect(result?.summary_short).toContain("【対象】");
   });
 });

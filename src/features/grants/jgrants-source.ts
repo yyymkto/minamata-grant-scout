@@ -8,7 +8,7 @@ const API_BASE = "https://api.jgrants-portal.go.jp/exp";
 const LIST_URL = `${API_BASE}/v1/public/subsidies`;
 const DETAIL_URL = `${API_BASE}/v2/public/subsidies/id`;
 
-const TARGET_AREAS = ["全国", "佐賀県"];
+const TARGET_AREAS = ["全国", "熊本県"];
 const KEYWORDS = ["補助金", "交付金", "助成金", "支援事業"];
 
 const KNOWN_MINISTRIES = [

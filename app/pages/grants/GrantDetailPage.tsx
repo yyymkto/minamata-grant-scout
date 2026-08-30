@@ -91,11 +91,11 @@ export function GrantDetailPage() {
       {/* Header */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          {a?.taraFitRank && (
-            <span className={`inline-flex items-center rounded-lg border px-3 py-1 text-sm font-bold ${rankColor(a.taraFitRank)}`}>
-              ランク {a.taraFitRank}
-              {a.taraFitScore != null && (
-                <span className="ml-1.5 text-xs font-normal opacity-75">({a.taraFitScore}点)</span>
+          {a?.minamataFitRank && (
+            <span className={`inline-flex items-center rounded-lg border px-3 py-1 text-sm font-bold ${rankColor(a.minamataFitRank)}`}>
+              ランク {a.minamataFitRank}
+              {a.minamataFitScore != null && (
+                <span className="ml-1.5 text-xs font-normal opacity-75">({a.minamataFitScore}点)</span>
               )}
             </span>
           )}
@@ -149,16 +149,16 @@ export function GrantDetailPage() {
         </Section>
       )}
 
-      {/* Tara fit + Department + Use case — 2-col on desktop */}
-      {a?.taraFitReason && (
-        <Section title="太良町との相性">
-          <p className="text-sm leading-relaxed text-gray-800">{a.taraFitReason}</p>
+      {/* Minamata fit + Department + Use case — 2-col on desktop */}
+      {a?.minamataFitReason && (
+        <Section title="水俣市との相性">
+          <p className="text-sm leading-relaxed text-gray-800">{a.minamataFitReason}</p>
         </Section>
       )}
 
-      {a?.taraUseCase && (
-        <Section title="太良町での活用仮説">
-          <p className="text-sm leading-relaxed text-gray-800">{a.taraUseCase}</p>
+      {a?.minamataUseCase && (
+        <Section title="水俣市での活用仮説">
+          <p className="text-sm leading-relaxed text-gray-800">{a.minamataUseCase}</p>
         </Section>
       )}
 

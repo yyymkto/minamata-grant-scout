@@ -111,13 +111,13 @@ export function GrantListPage() {
     const rankOrder: Record<string, number> = { A: 0, B: 1, C: 2 };
     return [...grants].sort((a, b) => {
       if (sortBy === "rank") {
-        const ra = rankOrder[a.taraFitRank ?? "C"] ?? 3;
-        const rb = rankOrder[b.taraFitRank ?? "C"] ?? 3;
+        const ra = rankOrder[a.minamataFitRank ?? "C"] ?? 3;
+        const rb = rankOrder[b.minamataFitRank ?? "C"] ?? 3;
         if (ra !== rb) return ra - rb;
-        return (b.taraFitScore ?? 0) - (a.taraFitScore ?? 0);
+        return (b.minamataFitScore ?? 0) - (a.minamataFitScore ?? 0);
       }
       if (sortBy === "score") {
-        return (b.taraFitScore ?? 0) - (a.taraFitScore ?? 0);
+        return (b.minamataFitScore ?? 0) - (a.minamataFitScore ?? 0);
       }
       // deadline
       if (!a.deadline) return 1;
@@ -131,10 +131,10 @@ export function GrantListPage() {
       {/* Header */}
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900">
-          補助金スカウト <span className="text-lg font-normal text-gray-400">@太良</span> <span className="text-base font-normal text-gray-400">— </span><span className="text-indigo-600">{grants.length}</span><span className="text-base font-normal text-gray-400">件</span>
+          補助金スカウト <span className="text-lg font-normal text-gray-400">@水俣</span> <span className="text-base font-normal text-gray-400">— </span><span className="text-indigo-600">{grants.length}</span><span className="text-base font-normal text-gray-400">件</span>
         </h1>
         <p className="text-sm text-gray-500">
-          全省庁の補助金からAIが太良町に使えそうなものを自動ピックアップ
+          全省庁の補助金からAIが水俣市に使えそうなものを自動ピックアップ
         </p>
       </div>
 
@@ -220,11 +220,11 @@ export function GrantListPage() {
                 <div className="absolute right-0 top-7 z-50 w-64 rounded-lg border border-gray-200 bg-white p-3 text-xs leading-relaxed text-gray-600 shadow-lg">
                   <p className="mb-2 font-semibold text-gray-800">AIランクの基準</p>
                   <div className="space-y-1.5">
-                    <p><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-emerald-100 text-[10px] font-bold text-emerald-800">A</span> 太良町が直接活用できる可能性が高い</p>
+                    <p><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-emerald-100 text-[10px] font-bold text-emerald-800">A</span> 水俣市が直接活用できる可能性が高い</p>
                     <p><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-amber-100 text-[10px] font-bold text-amber-800">B</span> 間接的に活用できる・条件付きで該当</p>
-                    <p><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-gray-100 text-[10px] font-bold text-gray-500">C</span> 太良町との関連性が低い（非表示）</p>
+                    <p><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-gray-100 text-[10px] font-bold text-gray-500">C</span> 水俣市との関連性が低い（非表示）</p>
                   </div>
-                  <p className="mt-2 text-[10px] text-gray-400">スコアはAIが総合的に判定した太良町への適合度（0〜100）</p>
+                  <p className="mt-2 text-[10px] text-gray-400">スコアはAIが総合的に判定した水俣市への適合度（0〜100）</p>
                 </div>
               </>
             )}
@@ -255,12 +255,12 @@ export function GrantListPage() {
                 <Link
                   key={g.id}
                   href={`/grants/${g.id}`}
-                  className={`group flex cursor-pointer items-start gap-3 border-l-3 px-4 py-3.5 transition-all duration-200 hover:bg-indigo-50/50 sm:items-center ${rankRowBorder(g.taraFitRank)} ${dl.ended ? "opacity-50" : ""}`}
+                  className={`group flex cursor-pointer items-start gap-3 border-l-3 px-4 py-3.5 transition-all duration-200 hover:bg-indigo-50/50 sm:items-center ${rankRowBorder(g.minamataFitRank)} ${dl.ended ? "opacity-50" : ""}`}
                 >
                   {/* Rank badge */}
                   <span className="flex shrink-0 items-center pt-0.5 sm:pt-0">
-                    <span className={`inline-flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold border transition-transform duration-200 group-hover:scale-110 ${rankBadge(g.taraFitRank)}`}>
-                      {g.taraFitRank ?? "—"}
+                    <span className={`inline-flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold border transition-transform duration-200 group-hover:scale-110 ${rankBadge(g.minamataFitRank)}`}>
+                      {g.minamataFitRank ?? "—"}
                     </span>
                   </span>
 
@@ -290,8 +290,8 @@ export function GrantListPage() {
 
                   {/* Score & Deadline — right side */}
                   <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
-                    {g.taraFitScore != null && (
-                      <span className="tabular-nums font-bold text-gray-800">{g.taraFitScore}<span className="font-normal text-gray-500">点</span></span>
+                    {g.minamataFitScore != null && (
+                      <span className="tabular-nums font-bold text-gray-800">{g.minamataFitScore}<span className="font-normal text-gray-500">点</span></span>
                     )}
                     {dl.text !== "未定" && (
                       <span className={dl.ended ? "text-gray-400 line-through" : dl.urgent ? "font-semibold text-red-600" : "text-gray-500"}>
