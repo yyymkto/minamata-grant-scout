@@ -173,11 +173,18 @@ export interface AnalysisResult {
   minamata_categories: string[] | string;
 }
 
-/** Workers AI models to try in order */
+/**
+ * Workers AI models to try in order, cheapest first (Workers AI無料枠は1日10,000ニューロン)。
+ * 参考ニューロン単価（入力/出力 per M tokens、developers.cloudflare.com/workers-ai/platform/pricing/）:
+ *   llama-3.1-8b-instruct-fp8-fast: 4,119 / 34,868
+ *   qwen3-30b-a3b-fp8 (MoE, active 3B):  4,625 / 30,475
+ *   llama-3.3-70b-instruct-fp8-fast:    26,668 / 204,805（安全網。滅多に到達しない想定）
+ * qwen3.8-27bは同クラス最高コスト（40,909 / 290,909）のため除外。
+ */
 const WORKERS_AI_MODELS = [
+  "@cf/meta/llama-3.1-8b-instruct-fp8-fast",
   "@cf/qwen/qwen3-30b-a3b-fp8",
   "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-  "@cf/qwen/qwen3.8-27b",
 ] as const;
 
 /** Call Cloudflare Workers AI native binding */
