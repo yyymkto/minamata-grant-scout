@@ -96,7 +96,7 @@ Cron (0 21 * * * = JST 6:00)
 ## AI 解析の注意点
 
 - Cloudflare Workers AI（複数モデルを順に試行）→ Google Gemini（AI Studio無料枠）→ OpenAI GPT-4o-mini → Kimi K2.5 の順にフォールバック
-- 評価ルーブリック・水俣市プロファイルは `src/features/grants/analyzer.ts` の `SYSTEM_PROMPT` と `minamata-profile.ts` を参照
+- 評価は「LLM分類 + 決定論的スコア計算」のハイブリッド方式。LLMは産業・政策テーマ・水俣固有性タグへの分類のみ行い（`src/features/grants/analyzer.ts` の `SYSTEM_PROMPT`）、0〜100点のスコアとA/B/Cランクは `src/features/grants/minamata-scoring-profile.ts` の決定論的ロジックで自動計算する。地域プロファイルの数値根拠は `minamata_research_files/`（YAML・Python参照実装・設計メモ）を参照。市の定性的なプロフィール文章は `minamata-profile.ts`
 - reasoning_contentフォールバック + ブレース対応JSONパーサーで安定抽出
 - AI出力はZodスキーマでバリデーション（不正な型・範囲はデフォルト値にフォールバック）
 - 外部API呼び出しにAbortSignal.timeout設定（jGrants: 15s, LLM: 30s）
