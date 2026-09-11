@@ -25,7 +25,14 @@ const KUMAMOTO_PREF_FEEDS = [
   "/rss/10/soshiki-5-53.xml", // 循環社会推進課
   "/rss/10/soshiki-28-208.xml", // 観光振興課
   "/rss/10/soshiki-4-36.xml", // 子ども家庭福祉課
+  "/rss/10/soshiki-4-35.xml", // 子ども未来課
   "/rss/10/soshiki-4-27.xml", // 健康福祉政策課
+  "/rss/10/soshiki-4-32.xml", // 高齢者支援課
+  "/rss/10/soshiki-4-34.xml", // 社会福祉課
+  "/rss/10/soshiki-4-39.xml", // 障がい者支援課
+  "/rss/10/soshiki-4-42.xml", // 医療政策課
+  "/rss/10/soshiki-4-43.xml", // 国保・高齢者医療課
+  "/rss/10/soshiki-4-44.xml", // 健康づくり推進課
 ];
 
 const GRANT_KEYWORD_PATTERN = /(補助金|助成金|支援金|給付金|公募|交付金)/;

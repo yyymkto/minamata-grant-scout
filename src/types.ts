@@ -15,6 +15,7 @@ export interface Env {
   CORS_ORIGIN?: string;
   APP_BASE_URL?: string;
   // 外部LLMはフォールバック用（主モデルは Workers AI）
+  GEMINI_API_KEY?: string;
   KIMI_API_KEY?: string;
   OPENAI_API_KEY?: string;
   ADMIN_SECRET: string;

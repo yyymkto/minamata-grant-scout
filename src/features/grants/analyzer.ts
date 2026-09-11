@@ -388,7 +388,23 @@ ${truncatedText || "（本文なし — タイトルと省庁から推定して�
     }
   }
 
-  // 2. Fallback: OpenAI GPT-4o-mini (if configured)
+  // 2. Fallback: Google Gemini (if configured) — AI Studio 無料枠、OpenAI互換エンドポイント経由
+  if (env.GEMINI_API_KEY) {
+    logEvent("info", "analyzer.fallback_to_gemini", { title: grant.title });
+    const result = await callHttpLlm(
+      {
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+        apiKey: env.GEMINI_API_KEY,
+        model: "gemini-2.0-flash",
+      },
+      SYSTEM_PROMPT,
+      userMessage,
+      grant.title
+    );
+    if (result) return result;
+  }
+
+  // 3. Fallback: OpenAI GPT-4o-mini (if configured)
   if (env.OPENAI_API_KEY) {
     logEvent("info", "analyzer.fallback_to_openai", { title: grant.title });
     const result = await callHttpLlm(
@@ -404,7 +420,7 @@ ${truncatedText || "（本文なし — タイトルと省庁から推定して�
     if (result) return result;
   }
 
-  // 3. Fallback: Kimi K2.5 (if configured)
+  // 4. Fallback: Kimi K2.5 (if configured)
   if (env.KIMI_API_KEY) {
     logEvent("info", "analyzer.fallback_to_kimi", { title: grant.title });
     const result = await callHttpLlm(

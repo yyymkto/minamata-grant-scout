@@ -20,7 +20,7 @@ Web UI (React SPA)
   → GET /api/grants/:id → 詳細 + AI 解析結果
 ```
 
-Cloudflare 完結（Workers + D1 + Queues + Workers AI + Cron Triggers）。外部依存は jGrants API と熊本県公式サイト（任意で OpenAI / Kimi API フォールバックも可能）。
+Cloudflare 完結（Workers + D1 + Queues + Workers AI + Cron Triggers）。外部依存は jGrants API と熊本県公式サイト（任意で Gemini / OpenAI / Kimi API フォールバックも可能）。
 
 ## スタック
 
@@ -33,7 +33,7 @@ Cloudflare 完結（Workers + D1 + Queues + Workers AI + Cron Triggers）。外�
 | 定期実行 | Cron Triggers |
 | AI 解析 | Cloudflare Workers AI (Llama 3.3 70B / Qwen 2.5 72B) |
 | データソース1 | jGrants API (デジタル庁、対象地域: 全国 + 熊本県) — 国の補助金 |
-| データソース2 | 熊本県公式サイト RSS（8部署の新着情報） — 県独自の補助金 |
+| データソース2 | 熊本県公式サイト RSS（15部署の新着情報） — 県独自の補助金 |
 | Build | Vite + @cloudflare/vite-plugin |
 
 ## クイックスタート
@@ -108,7 +108,7 @@ minamata-grant-scout/
 │   ├── features/grants/          ingest パイプライン (TS)
 │   │   ├── jgrants-source.ts        jGrants API クライアント（対象地域: 全国 + 熊本県）
 │   │   ├── kumamoto-pref-source.ts  熊本県公式サイト RSS クライアント（県独自制度）
-│   │   ├── analyzer.ts              Workers AI（+ OpenAI/Kimi フォールバック）AI 解析
+│   │   ├── analyzer.ts              Workers AI（+ Gemini/OpenAI/Kimi フォールバック）AI 解析
 │   │   ├── ingest.ts                オーケストレータ
 │   │   ├── json-parser.ts           LLM 出力パーサー
 │   │   └── minamata-profile.ts      水俣市プロファイル
@@ -130,6 +130,7 @@ minamata-grant-scout/
 # wrangler.jsonc の database_id・queue 名を発行された値に更新してください
 
 # シークレット設定（初回のみ）
+wrangler secret put GEMINI_API_KEY   # Gemini 2.0 Flash fallback（推奨・無料枠あり）
 wrangler secret put OPENAI_API_KEY   # GPT-4o-mini fallback（任意）
 wrangler secret put KIMI_API_KEY     # Kimi K2.5 fallback（任意）
 wrangler secret put ADMIN_SECRET

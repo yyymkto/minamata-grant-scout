@@ -86,7 +86,7 @@ Cron (0 21 * * * = JST 6:00)
 
 ## 熊本県公式サイトRSS（kumamoto-pref-source.ts）の注意点
 
-- 対象8部署のRSS URLは `/rss/10/soshiki-{部グループ番号}-{組織番号}.xml`。部グループ番号は組織番号と一致しないため、実URLは各部署ページのHTMLから個別に確認したもの（ハードコード済み、`KUMAMOTO_PREF_FEEDS`）
+- 対象15部署（商工・農林水産・エネルギー・環境・観光に加え、2026-09に福祉・医療・子ども系7課を追加: 高齢者支援課・社会福祉課・障がい者支援課・医療政策課・国保高齢者医療課・健康づくり推進課・子ども未来課）のRSS URLは `/rss/10/soshiki-{部グループ番号}-{組織番号}.xml`。部グループ番号は組織番号と一致しないため、実URLは各部署ページのHTMLから個別に確認したもの（ハードコード済み、`KUMAMOTO_PREF_FEEDS`）。なお「病院局」は病院運営組織で補助金情報の発信元として不向きなため対象外とした
 - 部署の再編でRSS URL・部署名が変わることがある（実装時に3/8部署でGeminiの事前調査と実際の部署名が食い違っていた）。定期的な検証を推奨
 - タイトルに「補助金|助成金|支援金|給付金|公募|交付金」を含み、「募集終了|受付終了|終了しました」を含まない記事のみ抽出
 - 記事本文は `id="main_body"` 〜 `id="content_footer"` の間のみ抽出（ヘッダー・フッター等のノイズ除外）
@@ -95,17 +95,19 @@ Cron (0 21 * * * = JST 6:00)
 
 ## AI 解析の注意点
 
-- Cloudflare Workers AI（複数モデルを順に試行）→ OpenAI GPT-4o-mini → Kimi K2.5 の順にフォールバック
+- Cloudflare Workers AI（複数モデルを順に試行）→ Google Gemini（AI Studio無料枠）→ OpenAI GPT-4o-mini → Kimi K2.5 の順にフォールバック
 - 評価ルーブリック・水俣市プロファイルは `src/features/grants/analyzer.ts` の `SYSTEM_PROMPT` と `minamata-profile.ts` を参照
 - reasoning_contentフォールバック + ブレース対応JSONパーサーで安定抽出
 - AI出力はZodスキーマでバリデーション（不正な型・範囲はデフォルト値にフォールバック）
 - 外部API呼び出しにAbortSignal.timeout設定（jGrants: 15s, LLM: 30s）
 - Queue handlerはON CONFLICT DO NOTHINGで冪等（at-least-once配信に対応）
-- `.dev.vars` に `OPENAI_API_KEY`, `KIMI_API_KEY`, `ADMIN_SECRET` を設定（Workers AIはCloudflareバインディングのため鍵不要）
+- `.dev.vars` に `GEMINI_API_KEY`, `OPENAI_API_KEY`, `KIMI_API_KEY`, `ADMIN_SECRET` を設定（Workers AIはCloudflareバインディングのため鍵不要）
+- **Workers AIは無料枠が1日1万ニューロンしかなく、大量投入時はすぐ枯渇する。Queueにdead letter未設定のため、全フォールバックが失敗したジョブは3回リトライ後に消える。** そのため cron のたびに `queueUnanalyzedBacklog()`（`src/features/grants/ingest.ts`）が未解析分を少しずつ（デフォルト30件）再キュー投入し、自己修復する。フォールバック鍵（特にGemini）を設定しておくとほぼ即座に解消する。
 
 ## シークレット
 
 ```bash
+wrangler secret put GEMINI_API_KEY   # Gemini 2.0 Flash fallback（推奨・無料枠あり、Googleアカウントのみで取得可: https://aistudio.google.com/apikey）
 wrangler secret put OPENAI_API_KEY   # GPT-4o-mini fallback（任意）
 wrangler secret put KIMI_API_KEY     # Kimi K2.5 fallback（任意）
 wrangler secret put ADMIN_SECRET
