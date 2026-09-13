@@ -225,6 +225,12 @@ export function GrantListPage() {
                     <p><span className="inline-flex h-5 w-5 items-center justify-center rounded bg-gray-100 text-[10px] font-bold text-gray-500">C</span> 水俣市との関連性が低い（非表示）</p>
                   </div>
                   <p className="mt-2 text-[10px] text-gray-400">スコアはAIが総合的に判定した水俣市への適合度（0〜100）</p>
+                  <Link
+                    href="/grants/about-scoring"
+                    className="mt-2 inline-block cursor-pointer text-[10px] font-medium text-indigo-600 hover:text-indigo-500"
+                  >
+                    詳しい評価方法はこちら →
+                  </Link>
                 </div>
               </>
             )}

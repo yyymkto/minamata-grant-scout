@@ -114,3 +114,70 @@ export function useGrant(id: number) {
     },
   });
 }
+
+export type ScoringIndustry = {
+  key: string;
+  label: string;
+  E: number;
+  V: number;
+  P: number;
+  base: number;
+  rationale: string;
+  confidence: "high" | "medium" | "low";
+};
+
+export type ScoringTheme = {
+  key: string;
+  label: string;
+  P: number;
+  basis: string;
+};
+
+export type ScoringUniquenessTag = {
+  key: string;
+  label: string;
+  bonus: number;
+  appliesWhen: string;
+  examples?: string[];
+  doNotApplyTo?: string[];
+  confidence: "high" | "medium" | "low";
+};
+
+export type ScoringTimeLimitedModifier = {
+  key: string;
+  label: string;
+  bonus: number;
+  validUntil: string;
+  note?: string;
+  active: boolean;
+};
+
+export type ScoringProfile = {
+  scoringModel: {
+    industryFormula: { wEmployment: number; wValueAdded: number; wPolicy: number; scale: number };
+    scoreComposition: {
+      industryFit: number;
+      themeFit: number;
+      uniquenessBonusMax: number;
+      timeLimitedModifierMax: number;
+    };
+    recruitmentClosedCap: number;
+    notEligibleCap: number;
+  };
+  industries: ScoringIndustry[];
+  themes: ScoringTheme[];
+  uniquenessTags: ScoringUniquenessTag[];
+  timeLimitedModifiers: ScoringTimeLimitedModifier[];
+};
+
+export function useScoringProfile() {
+  return useQuery({
+    queryKey: [...GRANTS_KEY, "scoring-profile"],
+    queryFn: async () => {
+      const res = await fetch("/api/grants/scoring-profile", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch scoring profile");
+      return (await res.json()) as ScoringProfile;
+    },
+    staleTime: 5 * 60_000,
+  });
+}

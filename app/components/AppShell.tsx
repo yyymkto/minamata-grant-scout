@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link, useLocation } from "wouter";
 import { useGrantStatus } from "../hooks/useGrants";
 
 function formatDate(iso: string | null) {
@@ -20,17 +21,38 @@ function hoursAgo(iso: string | null): number | null {
 
 export function AppShell({
   children,
+  navItems = [],
 }: {
   children: React.ReactNode;
   navItems?: { label: string; href: string }[];
 }) {
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [location] = useLocation();
   const { data: status } = useGrantStatus();
   const cronHours = hoursAgo(status?.lastCronAt ?? null);
   const isStale = cronHours == null || cronHours > 26;
 
   return (
     <div className="flex min-h-dvh flex-col bg-gray-50 text-gray-900">
+      {navItems.length > 0 && (
+        <nav className="border-b border-gray-200 bg-white">
+          <div className="mx-auto flex w-full max-w-5xl gap-1 px-4 py-2 sm:px-6">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-200 ${
+                  location === item.href
+                    ? "bg-indigo-50 text-indigo-700"
+                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      )}
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
       <footer className="border-t border-gray-200 py-4 text-center text-xs text-gray-400">
         {status && (

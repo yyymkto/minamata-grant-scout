@@ -5,8 +5,13 @@ import { grants, grantAiAnalyses, systemMeta } from "../db/schema";
 import type { AppContextEnv } from "../types";
 import { jsonError } from "../lib/http";
 import { ingestGrantList, reanalyzeGrants } from "../features/grants/ingest";
+import { getScoringProfileSummary } from "../features/grants/minamata-scoring-profile";
 
 const app = new Hono<AppContextEnv>()
+  // 評価方法の説明ページ向け: 配点モデルをそのまま返す（認証不要、公開情報）
+  .get("/scoring-profile", async (c) => {
+    return c.json(getScoringProfileSummary());
+  })
   // LIST with SQL-level filters
   .get("/", async (c) => {
     const db = drizzle(c.env.DB);

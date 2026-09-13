@@ -452,3 +452,26 @@ export function scoreSubsidy(input: ScoreSubsidyInput): ScoreResult {
     notes,
   };
 }
+
+/**
+ * 評価方法の説明ページ（フロントエンド）向けに、配点モデルをそのままJSONで返す。
+ * ページ側で個別にハードコードすると数値追加・変更のたびに二重管理でズレるため、
+ * ここを唯一の情報源として使う。
+ */
+export function getScoringProfileSummary(today: Date = new Date()) {
+  return {
+    scoringModel: SCORING_MODEL,
+    industries: Object.entries(INDUSTRIES).map(([key, def]) => ({
+      key,
+      ...def,
+      base: Math.round(industryBase(key as IndustryKey) * 10) / 10,
+    })),
+    themes: Object.entries(THEMES).map(([key, def]) => ({ key, ...def })),
+    uniquenessTags: Object.entries(UNIQUENESS_TAGS).map(([key, def]) => ({ key, ...def })),
+    timeLimitedModifiers: Object.entries(TIME_LIMITED_MODIFIERS).map(([key, def]) => ({
+      key,
+      ...def,
+      active: today <= new Date(`${def.validUntil}T23:59:59`),
+    })),
+  };
+}

@@ -4,17 +4,20 @@ import { AppShell } from "./components/AppShell";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { GrantListPage } from "./pages/grants/GrantListPage";
 import { GrantDetailPage } from "./pages/grants/GrantDetailPage";
+import { MethodologyPage } from "./pages/grants/MethodologyPage";
 
 const queryClient = new QueryClient();
 
 const navItems = [
   { label: "補助金一覧", href: "/grants" },
+  { label: "評価方法について", href: "/grants/about-scoring" },
 ];
 
 function AppRoutes() {
   return (
     <AppShell navItems={navItems}>
       <Switch>
+        <Route path="/grants/about-scoring" component={MethodologyPage} />
         <Route path="/grants" component={GrantListPage} />
         <Route path="/grants/:id" component={GrantDetailPage} />
         <Route path="/">
