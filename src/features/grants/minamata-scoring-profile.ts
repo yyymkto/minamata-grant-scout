@@ -30,7 +30,11 @@ export type ThemeKey =
   | "relationship_learning"
   | "community_kyosei"
   | "primary_industry"
-  | "digital_admin";
+  | "digital_admin"
+  | "school_education"
+  | "talent_development"
+  | "youth_sports"
+  | "culture_heritage";
 
 export type UniquenessTagKey =
   | "MINAMATA_DISEASE_AREA"
@@ -153,17 +157,18 @@ export const THEMES: Record<ThemeKey, ThemeDef> = {
   population_childcare: {
     label: "人口減少対策・子育て",
     P: 5.0,
-    basis: "総合計画で「本市最大の課題」と明記。こども家庭センター(2024)",
+    basis:
+      "総合計画で「本市最大の課題」と明記。こども家庭センター(2024)。市内認定こども園16施設は全て民間法人運営で、子どものための教育・保育給付負担金11.3億円（2026年度、前年比+12.4%）等の補助金の実際の受け手になる。就学前教育・保育の補助金もここで拾う",
   },
   gaika_business: {
     label: "外貨獲得・地場企業の域外展開・企業誘致",
     P: 5.0,
-    basis: "総合計画ビジョン1、企業支援センター、臨海部産業団地",
+    basis: "総合計画ビジョン、企業支援センター、臨海部産業団地",
   },
   exchange_population: {
     label: "交流人口（スポーツ・観光・エコパーク）",
     P: 5.0,
-    basis: "総合計画ビジョン3、スポーツコミッション",
+    basis: "総合計画ビジョン、スポーツコミッション",
   },
   healthcare_workforce: {
     label: "地域医療・介護人材確保",
@@ -204,6 +209,30 @@ export const THEMES: Record<ThemeKey, ThemeDef> = {
     label: "DX・行財政",
     P: 2.5,
     basis: "第7次行財政改革大綱",
+  },
+  school_education: {
+    label: "学校教育・子どもの学び",
+    P: 4.0,
+    basis:
+      "総合計画第2章「教育・文化」の中心施策で基本計画中最多の分量（22%）。学校施設の耐震化・トイレ改修を「急務」と明記、学力向上推進事業、GIGA端末更新、学校給食費完全無償化(2026年4月〜)",
+  },
+  talent_development: {
+    label: "高校・人材育成（水俣高校・グローカル人材・水俣環境アカデミア）",
+    P: 3.5,
+    basis:
+      "教育大綱（2026-2029）の決意の1番目。県立高校再編への危機感から半導体関連学科新設・大学連携等で水俣高校を支援",
+  },
+  youth_sports: {
+    label: "子どものスポーツ育成",
+    P: 3.5,
+    basis:
+      "スポーツ推進課は市長部局所管で組織上の優先度が高い。スポーツキッズサポーター事業、中学部活動の地域移行率100%目標(2026年度)。観光・交流人口文脈のスポーツコミッションとは別枠",
+  },
+  culture_heritage: {
+    label: "文化・文化財・生涯学習",
+    P: 2.5,
+    basis:
+      "文化財保存活用地域計画(2024年12月文化庁認定)。ただし過疎計画で財政制約を市自身が明記し優先度は相対的に低い。水俣病資料館・もやい直し関連は環境課所管でMOYAI/MINAMATA_DISEASE_AREAタグ側の加点対象のため、二重加点を避けるためここには含めない",
   },
 };
 
