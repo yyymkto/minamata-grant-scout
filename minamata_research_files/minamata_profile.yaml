@@ -1,0 +1,326 @@
+# =====================================================================
+# MINAMATA_PROFILE  —  水俣市 補助金マッチング用 地域プロファイル
+# ---------------------------------------------------------------------
+# 作成日        : 2026-09-11
+# スキーマ版    : 1.0
+# 原則          : 数値にはすべて source / as_of / confidence を付ける。
+#                 不明な値は null とし、推測値で埋めない。
+# confidence    : high = 一次資料で確認
+#                 medium = 二次資料経由・年次が古い・解釈を含む
+#                 low = 推論中心
+# =====================================================================
+
+meta:
+  municipality: 熊本県水俣市
+  municipality_code: "43205"
+  profile_version: "1.0"
+  as_of: "2026-09-11"
+  next_review: "2026-10-15"   # 2025国勢調査 確定人口の反映後
+
+# ---------------------------------------------------------------------
+# 1. 基本指標
+# ---------------------------------------------------------------------
+basic_indicators:
+  population:
+    - value: 21142
+      definition: 住民基本台帳人口（外国人含む）
+      as_of: "2026-01-01"
+      source: 総務省 住民基本台帳に基づく人口（GD Freak!経由）
+      confidence: medium
+    - value: 23557
+      definition: 国勢調査人口（確報）
+      as_of: "2020-10-01"
+      source: 令和2年国勢調査 / 水俣市過疎地域持続的発展計画(R8-R12)
+      confidence: high
+    - value: null
+      definition: 国勢調査人口（2025速報）
+      as_of: "2025-10-01"
+      source: 熊本県「令和7年国勢調査 熊本県人口（速報値）」第1表Excel
+      confidence: null
+      todo: 県統計表 第1表から取得。確定値は2026年9月末公表予定
+  aging_rate:
+    value: 0.433
+    as_of: "2026-01-01"
+    source: 住民基本台帳（GD Freak!経由）
+    confidence: medium
+  aging_rate_projection_2040:
+    value: 0.514
+    source: 水俣市過疎地域持続的発展計画(R8-R12)
+    confidence: medium
+  natural_change_2023: {births: 79, deaths: 416, net: -337, source: 第2期水俣市まち・ひと・しごと創生推進計画, confidence: high}
+  social_change_2023: {in: 532, out: 771, net: -239, source: 第2期水俣市まち・ひと・しごと創生推進計画, confidence: high}
+  fiscal_capability_index:
+    value: 0.39
+    as_of: FY2020
+    source: 水俣市過疎地域持続的発展計画(R8-R12)
+    confidence: high
+  hospital_beds_per_1000:
+    value: 49.6
+    as_of: FY2020末
+    note: 病院7・診療所24、計1,166床、医師107人
+    source: 水俣市過疎地域持続的発展計画(R8-R12)
+    confidence: high
+  forest_ratio:
+    value: 0.738
+    as_of: FY2023
+    note: 林野12,055ha / 総面積16,329ha、民有林人工林率85.8%
+    source: 水俣市過疎地域持続的発展計画(R8-R12)
+    confidence: high
+
+# ---------------------------------------------------------------------
+# 2. 産業構造の根拠データ
+# ---------------------------------------------------------------------
+employment_2020:           # 国勢調査・常住地ベース、総数10,353人
+  source: 令和2年国勢調査（GD Freak!経由、合計値は市過疎計画と一致）
+  confidence: high
+  total: 10353
+  national_share_reference:   # 全国構成比（令和2年国勢調査）
+    medical_welfare: 0.135
+    manufacturing: 0.159
+    wholesale_retail: 0.158
+  by_industry:
+    medical_welfare:    {workers: 2563, share: 0.248}
+    manufacturing:      {workers: 1571, share: 0.152}
+    wholesale_retail:   {workers: 1438, share: 0.139}
+    construction:       {workers: 748,  share: 0.072}
+    services_other:     {workers: 696,  share: 0.067}
+    agriculture_forestry: {workers: 570, share: 0.055, note: 林業単独は不明}
+    public_service:     {workers: 480,  share: 0.046}
+    education:          {workers: 466,  share: 0.045}
+    accommodation_food: {workers: 447,  share: 0.043}
+    living_services:    {workers: 346,  share: 0.033}
+    transport:          {workers: 292,  share: 0.028}
+    fisheries:          {workers: 35,   share: 0.003}
+
+value_added_2018:          # 環境省 地域経済循環分析
+  source: 環境省 地域経済循環分析（2018年データ）
+  confidence: medium       # 1位は high、2位以下は順位のみ
+  grp_total_oku_yen: 811
+  energy_outflow_oku_yen: 59
+  rank_notes:
+    overall_1st: health_social_work
+    secondary_order: [construction, chemicals, other_manufacturing]
+    tertiary_order: [health_social_work, housing_rental, public_service]
+    net_exporters: [electrical_machinery, other_manufacturing, health_social_work]
+  exclude_from_scoring: [housing_rental, public_service]   # 帰属家賃・公務は補助対象外
+  todo: 熊本県 令和5年度市町村民経済計算（2026-03-27公表）のExcelで更新
+
+manufacturing_value_added_2022:
+  source: 経済産業省 経済構造実態調査（GD Freak!経由）
+  confidence: medium
+  total_oku_yen: 219.3
+  establishments: 37
+  by_industry:
+    chemicals:     {oku_yen: 79.9, share: 0.364}
+    wood_products: {oku_yen: 78.0, share: 0.356, note: 4事業所。原料の域内比率・企業名は不明}
+    plastics:      {oku_yen: 16.6, share: 0.076}
+
+# ---------------------------------------------------------------------
+# 3. 配点モデル  —  産業分野（industry）
+#    base = (0.4*E + 0.3*V + 0.3*P) * 20   … 0〜100点
+#    E: 就業者シェア指数  (share / 0.248 * 5)
+#    V: 付加価値指数      (2018順位と2022製造業内訳から設定、0〜5)
+#    P: 政策優先指数      (総合計画・3つのビジョン・過疎計画から設定、0〜5)
+# ---------------------------------------------------------------------
+scoring_model:
+  industry_formula: {w_employment: 0.4, w_value_added: 0.3, w_policy: 0.3, scale: 20}
+  score_composition:       # 最終スコア = 下記の合計（上限100で丸め）
+    industry_fit: 0.45
+    theme_fit: 0.35
+    uniqueness_bonus_max: 15
+    time_limited_modifier_max: 10
+
+industries:
+  medical_welfare:
+    label: 医療・福祉
+    E: 5.0
+    V: 5.0
+    P: 4.0
+    base: 94
+    rationale: 就業者24.8%（全国比約1.8倍）、付加価値1位、域外所得も獲得。介護求人倍率は県で約3倍
+    confidence: high
+  manufacturing:
+    label: 製造業
+    E: 3.1
+    V: 4.0
+    P: 5.0
+    base: 79
+    subtags: [chemicals, wood_products, plastics, gx_perovskite]
+    rationale: 化学・木材で製造業付加価値の7割。ビジョン1「外貨を稼ぐ水俣」の中核
+    confidence: medium
+  wholesale_retail:
+    label: 卸売・小売・商店街
+    E: 2.8
+    V: 2.0
+    P: 3.0
+    base: 52
+    rationale: 就業3位だが付加価値上位圏外（V は仮置き）。商店街活性化は過疎計画に明記
+    confidence: medium
+    todo: 市町村民経済計算でV確定
+  construction:
+    label: 建設業
+    E: 1.5
+    V: 4.0
+    P: 2.0
+    base: 48
+    rationale: 第2次産業で付加価値1位。地震復旧で時限的に需要増の可能性
+    confidence: medium
+  tourism_sports:
+    label: 観光・宿泊・飲食・スポーツ
+    E: 0.9
+    V: 1.5
+    P: 5.0
+    base: 46
+    rationale: 就業4.3%と小さいが、ビジョン3「活力生まれる水俣」の中核。国民保養温泉地(2022)
+    confidence: medium
+  agriculture:
+    label: 農業
+    E: 1.1
+    V: 1.0
+    P: 3.0
+    base: 33
+    rationale: 甘夏・不知火・サラダたまねぎ・茶・和紅茶が基幹作物。GI登録は確認できず
+    confidence: medium
+  forestry_wood:
+    label: 森林・林業・木材利用
+    E: 0.3
+    V: 2.5
+    P: 2.5
+    base: 32
+    rationale: 林業経営体は主に4。森林は市域の約74%。木材・木製品製造業は製造業付加価値の36%
+    note: 木材加工はmanufacturing側でも評価。二重計上に注意
+    confidence: medium
+  fisheries:
+    label: 水産業
+    E: 0.1
+    V: 0.5
+    P: 2.5
+    base: 19
+    rationale: 漁業就業35人、44経営体(2023)。牡蠣養殖・藻場造成・栽培漁業を継続
+    confidence: high
+
+# ---------------------------------------------------------------------
+# 4. 配点モデル  —  政策テーマ（theme）  0〜5
+# ---------------------------------------------------------------------
+themes:
+  population_childcare:   {label: 人口減少対策・子育て, P: 5.0, basis: 総合計画「本市最大の課題」、こども家庭センター(2024)}
+  gaika_business:         {label: 外貨獲得・地場企業の域外展開・企業誘致, P: 5.0, basis: 3つのビジョン1、企業支援センター、臨海部産業団地}
+  exchange_population:    {label: 交流人口（スポーツ・観光・エコパーク）, P: 5.0, basis: 3つのビジョン3、スポーツコミッション}
+  healthcare_workforce:   {label: 地域医療・介護人材確保, P: 4.5, basis: 常勤医不在の診療科、小児・産科の維持、過疎計画第8章}
+  disaster_resilience:    {label: 防災・災害復旧, P: 4.0, basis: 2003年豪雨の教訓、2026年熊本地震（災害救助法適用）}
+  environment_gx:         {label: 環境・脱炭素・資源循環, P: 4.0, basis: 環境モデル都市第3期計画（2030年50%削減）、エコタウン、ペロブスカイト支援}
+  migration_settlement:   {label: 移住・定住, P: 3.5, basis: KPI「移住支援策を活用した転入者数」0→120人(2028)}
+  relationship_learning:  {label: 関係人口・学び型交流（ワーケーション・環境学習）, P: 3.5, basis: 水俣ワーケーション、環境アカデミア}
+  community_kyosei:       {label: 地域コミュニティ・地域共生, P: 3.0, basis: もやい直しセンター維持(過疎計画)、自治会活動支援}
+  primary_industry:       {label: 農林水産振興, P: 3.0, basis: 過疎計画第3章}
+  digital_admin:          {label: DX・行財政, P: 2.5, basis: 第7次行財政改革大綱}
+
+# ---------------------------------------------------------------------
+# 5. 水俣固有性タグ（加点）
+#    applies_when の条件を満たす補助金にのみ加点する
+# ---------------------------------------------------------------------
+uniqueness_tags:
+  MINAMATA_DISEASE_AREA:
+    label: 水俣病発生地域限定制度
+    bonus: 15
+    applies_when: 補助対象地域・対象者が水俣病発生地域/被害者に限定されている
+    examples:
+      - 胎児性・小児性水俣病患者等に係る地域生活支援事業（県・団体向け補助）
+      - 環境・福祉モデル地域づくり推進事業（県・市町向け補助）
+      - 水俣病総合対策医療事業（個人給付、事業者には間接効果のみ）
+    confidence: high
+  MOYAI:
+    label: もやい直し・水俣病の教訓の継承
+    bonus: 10
+    applies_when: 事業内容にコミュニティ修復・慰霊・教訓継承・被害者福祉・学び型交流が含まれる
+    link_strength:
+      community_kyosei: strong
+      medical_welfare: strong
+      relationship_learning: medium
+      exchange_population: medium
+      migration_settlement: weak
+    do_not_apply_to: [移住支援金, 住宅取得補助, 空き家バンク等の汎用移住施策]
+    confidence: medium
+  MINAMATA_ASHIKITA_PLAN:
+    label: 水俣・芦北地域振興計画（第八次 2026-2030）
+    bonus: 8
+    applies_when: 県の同計画に位置づく事業
+    confidence: high
+  ENV_MODEL_CITY:
+    label: 環境モデル都市（2008選定）
+    bonus: 3
+    applies_when: 脱炭素・資源循環系の公募で先進性が評価要素になる
+    note: 認定に紐づく専用補助は確認できず。希少性のみ
+    confidence: medium
+  SDGS_FUTURE_CITY:
+    label: SDGs未来都市（2020選定、第3期計画 2026-2031）
+    bonus: 2
+    confidence: high
+
+eligibility_flags:           # 加点ではなく「対象になれるか」の判定に使う
+  KASO_AREA:
+    label: 過疎地域（持続的発展計画 R8-R12）
+    effect: 過疎債・税制特例の対象
+  SANGYO_SHINKO_KUIKI:
+    label: 産業振興促進区域（市全域）
+    eligible_industries: [製造業, 情報サービス業等, 農林水産物等販売業, 旅館業]
+    period: "2026-04-01 / 2030-03-31"
+  KUMAMOTO_IT_LOCATION_TOP_UP:
+    label: 熊本県IT企業立地補助の市町上乗せ対象地域
+    confidence: medium
+
+# ---------------------------------------------------------------------
+# 6. 時限要因（期限切れで自動失効させる）
+# ---------------------------------------------------------------------
+time_limited_modifiers:
+  R8_KUMAMOTO_EARTHQUAKE:
+    label: 令和8年熊本地震（2026-07-28、水俣市 震度5強、災害救助法適用）
+    bonus: 10
+    applies_to_themes: [disaster_resilience]
+    applies_to_industries: [construction, tourism_sports, wholesale_retail, manufacturing]
+    valid_until: "2028-03-31"   # 仮置き。復旧補助の公募状況で見直す
+    note: 市内の被害規模は不明
+  MINAMATA_70TH:
+    label: 水俣病公式確認70年事業（県地域提案事業 9/10・上限900万円）
+    bonus: 10
+    valid_until: "2027-03-31"
+    note: 募集は2026年3月で終了済み。類似の後継事業の監視用に残す
+
+# ---------------------------------------------------------------------
+# 7. 未確定・要取得データ（null のまま運用し、判明次第更新）
+# ---------------------------------------------------------------------
+open_items:
+  - {item: 2025国勢調査 速報人口（水俣市）, source: 熊本県統計表 第1表, due: 即時}
+  - {item: 2025国勢調査 確定人口, source: 総務省, due: 2026-09末}
+  - {item: 経済活動別 市内総生産（最新）, source: 熊本県 令和5年度市町村民経済計算Excel, due: 即時}
+  - {item: 医療・福祉の中分類（医療業／介護等）, source: 2021経済センサス活動調査}
+  - {item: 林業単独の就業者数, source: 農林業センサス / 国勢調査小地域集計}
+  - {item: 市内の水俣病関係手帳所持者数, source: 県水俣病保健課（公表有無不明）}
+  - {item: 介護職の有効求人倍率（ハローワーク水俣管内）, source: 熊本労働局}
+  - {item: 移住支援策を活用した転入者数の実績, source: 市 総合戦略効果検証（毎年8月頃）}
+  - {item: サテライトオフィス進出数・地域おこし協力隊数, source: 市地域振興課}
+  - {item: ふるさと納税 最新受入額, source: 総務省 現況調査, note: 2022年度は約1.96億円（二次資料）}
+  - {item: 木材・木製品製造業の実体（企業・原料調達）, source: 県統計年鑑 08-12 / 市企業紹介}
+  - {item: もやい直し関連の予算額, source: 市当初予算書}
+  - {item: 2025国勢調査 産業別就業者, source: 総務省, due: 2027年頃（見込み）}
+
+# ---------------------------------------------------------------------
+# 8. 見直しトリガー
+# ---------------------------------------------------------------------
+review_triggers:
+  - {when: "2026-09末", action: 確定人口で basic_indicators.population を更新}
+  - {when: 第7次総合計画の議決（2027年3月頃想定）, action: themes.P と industries.P を全面見直し}
+  - {when: 2025国勢調査 就業状態等基本集計の公表, action: employment_2020 を置換し E を再計算}
+  - {when: 市町村民経済計算の新年度公表（毎年3月頃）, action: value_added と V を更新}
+  - {when: 毎年8月（総合戦略効果検証）, action: migration_settlement のP妥当性を確認}
+  - {when: time_limited_modifiers.valid_until 到来, action: 自動失効}
+
+# ---------------------------------------------------------------------
+# 9. 運用上の注意
+# ---------------------------------------------------------------------
+guardrails:
+  - 住宅賃貸業（帰属家賃）・公務は経済規模指標から除外する
+  - MOYAI タグは汎用移住施策に付けない（水俣病を移住プロモーションに使っていると受け取られるリスク）
+  - 水俣病に関する記述は「遺伝・感染しない」等の事実に反する表現を生成・表示しない
+  - 環境未来都市には選定されていない（環境モデル都市・SDGs未来都市のみ）
+  - 人口は住基と国勢調査で定義が異なる。表示時に定義を明記する

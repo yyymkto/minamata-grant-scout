@@ -11,7 +11,7 @@ import { resolveCorsOrigins } from "./lib/cors";
 import { logEvent } from "./lib/logging";
 import { requestId } from "./middleware/request-id";
 import { jsonError } from "./lib/http";
-import { ingestGrantList, handleFetchDetail, handleAnalyze } from "./features/grants/ingest";
+import { ingestGrantList, handleFetchDetail, handleAnalyze, queueUnanalyzedBacklog } from "./features/grants/ingest";
 
 export const app = new Hono<AppContextEnv>()
   .use("*", requestId)
@@ -75,6 +75,18 @@ export default {
         })
         .catch((err) => {
           logEvent("error", "cron.error", {
+            message: err instanceof Error ? err.message : String(err),
+          });
+        })
+    );
+    // AIプロバイダの無料枠上限等で失敗・ロストした未解析分を少しずつ再キュー投入（自己修復）
+    ctx.waitUntil(
+      queueUnanalyzedBacklog(env)
+        .then((result) => {
+          logEvent("info", "cron.backlog_done", result);
+        })
+        .catch((err) => {
+          logEvent("error", "cron.backlog_error", {
             message: err instanceof Error ? err.message : String(err),
           });
         })

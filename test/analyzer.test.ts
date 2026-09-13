@@ -3,76 +3,88 @@ import { analysisSchema, analyzeGrant } from "../src/features/grants/analyzer";
 import type { Env, WorkersAiBinding } from "../src/types";
 
 describe("analysisSchema", () => {
-  it("should validate and map rank A when score is >= 75", () => {
+  it("should classify into industries/themes and compute rank A deterministically", () => {
     const raw = {
-      summary_short: "【対象】農家 【使途】省エネ機器 【補助】上限500万円 【アクション】申請書提出",
-      support_type: "補助金",
-      target_entities: "町内農家",
-      max_amount: "500万円",
-      subsidy_rate: "2/3",
-      eligible_themes: "農業,省エネ",
+      summary_short: "【対象】市内認定こども園 【使途】施設整備・ICT化 【補助】上限800万円 【アクション】市こども子育て課へ申請",
+      support_type: "交付金",
+      target_entities: "認定こども園（民間法人）",
+      max_amount: "800万円",
+      subsidy_rate: "定額",
+      eligible_themes: "子育て,施設整備",
       required_documents: "申請書,事業計画書",
       notes: null,
       ai_confidence: 90,
-      minamata_fit_score: 85,
-      minamata_fit_rank: "B", // score is 85, should be adjusted to A
-      minamata_fit_reason: "水俣市の柑橘農家に直結する支援",
-      suggested_department: "農林水産課",
-      suggested_department_reason: "農業振興事業のため",
-      minamata_use_case: "ハウス柑橘農家でのヒートポンプ導入",
-      minamata_categories: ["農業"],
+      matched_industries: ["medical_welfare"],
+      matched_themes: ["population_childcare"],
+      uniqueness_tags: [],
+      generic_migration: false,
+      not_eligible_for_minamata: false,
+      recruitment_effectively_closed: false,
+      minamata_fit_reason: "市内認定こども園は全16園が民間運営で、子育て支援の最重点施策に直結する",
+      suggested_department: "こども子育て課",
+      suggested_department_reason: "子育て支援施策の担当課のため",
+      minamata_use_case: "認定こども園の施設整備・ICT化支援",
+      minamata_categories: ["福祉・医療"],
     };
 
     const parsed = analysisSchema.safeParse(raw);
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       expect(parsed.data.minamata_fit_rank).toBe("A");
-      expect(parsed.data.minamata_fit_score).toBe(85);
+      expect(parsed.data.minamata_fit_score).toBe(77.3);
     }
   });
 
-  it("should map rank B when score is 50-74", () => {
+  it("should compute rank B for a mid-scoring classification", () => {
     const raw = {
-      summary_short: "【対象】中小企業 【使途】DX 【補助】上限100万円 【アクション】Web申請",
+      summary_short: "【対象】市内介護事業者 【使途】ICT導入による人材確保 【補助】上限200万円 【アクション】県窓口へ申請",
       support_type: "補助金",
-      target_entities: "小規模事業者",
-      max_amount: "100万円",
+      target_entities: "介護事業者",
+      max_amount: "200万円",
       subsidy_rate: "1/2",
-      eligible_themes: "IT",
+      eligible_themes: "介護,DX",
       required_documents: null,
       notes: null,
       ai_confidence: 80,
-      minamata_fit_score: 60,
-      minamata_fit_rank: "A", // score is 60, should be adjusted to B
-      minamata_fit_reason: "汎用的なIT導入補助",
-      suggested_department: "経済観光戦略課",
-      suggested_department_reason: "商工振興のため",
-      minamata_use_case: "町内商店でのPOSレジ導入",
-      minamata_categories: ["小規模事業者", "デジタル・IT"],
+      matched_industries: ["medical_welfare"],
+      matched_themes: ["healthcare_workforce"],
+      uniqueness_tags: [],
+      generic_migration: false,
+      not_eligible_for_minamata: false,
+      recruitment_effectively_closed: false,
+      minamata_fit_reason: "介護求人倍率が高い水俣市の人材確保課題に合致",
+      suggested_department: "いきいき健康課",
+      suggested_department_reason: "介護人材確保の担当課のため",
+      minamata_use_case: "介護施設でのICT導入による省力化",
+      minamata_categories: ["福祉・医療"],
     };
 
     const parsed = analysisSchema.safeParse(raw);
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       expect(parsed.data.minamata_fit_rank).toBe("B");
-      expect(parsed.data.minamata_fit_score).toBe(60);
+      expect(parsed.data.minamata_fit_score).toBe(73.8);
     }
   });
 
-  it("should map rank C when score is < 50", () => {
+  it("should cap the score and force rank C when not eligible for Minamata applicants", () => {
     const raw = {
-      summary_short: "【対象】大企業 【使途】半導体工場 【補助】上限10億円 【アクション】公募",
+      summary_short: "【対象】大企業 【使途】半導体工場新設 【補助】上限10億円 【アクション】公募",
       support_type: "補助金",
-      target_entities: "大企業",
+      target_entities: "大企業（資本金10億円以上）",
       max_amount: "10億円",
       subsidy_rate: "1/3",
-      eligible_themes: "先端技術",
+      eligible_themes: "先端技術,外貨獲得",
       required_documents: null,
-      notes: null,
+      notes: "大企業限定のため水俣市内事業者は応募不可",
       ai_confidence: 95,
-      minamata_fit_score: 10,
-      minamata_fit_rank: "A",
-      minamata_fit_reason: "水俣市には大企業・半導体工場がないため対象外",
+      matched_industries: ["manufacturing"],
+      matched_themes: ["gaika_business"],
+      uniqueness_tags: [],
+      generic_migration: false,
+      not_eligible_for_minamata: true,
+      recruitment_effectively_closed: false,
+      minamata_fit_reason: "産業テーマは合致するが資本金要件で水俣市内事業者は対象外",
       suggested_department: "経済観光戦略課",
       suggested_department_reason: "産業担当",
       minamata_use_case: "該当なし",
@@ -84,29 +96,34 @@ describe("analysisSchema", () => {
     if (parsed.success) {
       expect(parsed.data.minamata_fit_rank).toBe("C");
       expect(parsed.data.minamata_fit_score).toBe(10);
+      expect(parsed.data.score_breakdown.notEligibleCapApplied).toBe(true);
     }
   });
 });
 
 describe("analyzeGrant with Workers AI", () => {
-  it("should call Workers AI binding and return parsed result", async () => {
+  it("should call Workers AI binding, classify, and compute the score deterministically", async () => {
     const mockJson = {
-      summary_short: "【対象】水俣市農家 【使途】スマート農業 【補助】上限300万円 【アクション】JA経由申請",
+      summary_short: "【対象】胎児性・小児性水俣病患者等 【使途】地域生活支援 【補助】定額 【アクション】県・団体経由で申請",
       support_type: "補助金",
-      target_entities: "農家",
-      max_amount: "300万円",
-      subsidy_rate: "1/2",
-      eligible_themes: "農業",
+      target_entities: "胎児性・小児性水俣病患者等",
+      max_amount: null,
+      subsidy_rate: "定額",
+      eligible_themes: "水俣病対策,地域共生",
       required_documents: null,
       notes: null,
       ai_confidence: 85,
-      minamata_fit_score: 80,
-      minamata_fit_rank: "A",
-      minamata_fit_reason: "柑橘園の傾斜地での作業省力化に合致",
-      suggested_department: "農林水産課",
-      suggested_department_reason: "農業担当のため",
-      minamata_use_case: "柑橘園での散水自動化",
-      minamata_categories: ["農業"],
+      matched_industries: ["medical_welfare"],
+      matched_themes: ["community_kyosei"],
+      uniqueness_tags: ["MINAMATA_DISEASE_AREA", "MOYAI"],
+      generic_migration: false,
+      not_eligible_for_minamata: false,
+      recruitment_effectively_closed: false,
+      minamata_fit_reason: "水俣病発生地域限定制度に該当し、地域共生テーマとも合致",
+      suggested_department: "福祉課",
+      suggested_department_reason: "水俣病対策・福祉の担当課のため",
+      minamata_use_case: "地域生活支援員の配置拡充",
+      minamata_categories: ["福祉・医療"],
     };
 
     const mockAi: WorkersAiBinding = {
@@ -121,11 +138,11 @@ describe("analyzeGrant with Workers AI", () => {
 
     const result = await analyzeGrant(
       {
-        title: "スマート農業導入実証事業",
-        source_ministry: "農林水産省",
+        title: "胎児性・小児性水俣病患者等 地域生活支援事業",
+        source_ministry: "熊本県",
         source_url: "https://example.com/grant/1",
         deadline: "2026-10-31",
-        raw_text: "スマート農業機器の導入支援...",
+        raw_text: "胎児性・小児性水俣病患者等の地域生活を支援する事業...",
       },
       env
     );
@@ -133,7 +150,7 @@ describe("analyzeGrant with Workers AI", () => {
     expect(mockAi.run).toHaveBeenCalledTimes(1);
     expect(result).not.toBeNull();
     expect(result?.minamata_fit_rank).toBe("A");
-    expect(result?.minamata_fit_score).toBe(80);
+    expect(result?.minamata_fit_score).toBe(78.3);
     expect(result?.summary_short).toContain("【対象】");
   });
 });

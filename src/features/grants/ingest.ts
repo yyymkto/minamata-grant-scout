@@ -5,7 +5,7 @@
  * 2. 新規分をQueue投入（詳細取得→AI解析）
  */
 import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
-import { eq, sql, isNull, inArray } from "drizzle-orm";
+import { eq, sql, isNull, isNotNull, inArray, and } from "drizzle-orm";
 import { grants, grantAiAnalyses, systemMeta } from "../../db/schema";
 import { fetchGrantList, enrichGrantDetail, type RawGrant } from "./jgrants-source";
 import { fetchKumamotoPrefGrantList, fetchKumamotoPrefArticleBody } from "./kumamoto-pref-source";
@@ -254,6 +254,10 @@ export async function handleAnalyze(
     suggestedDepartmentReason: analysis.suggested_department_reason,
     minamataUseCase: analysis.minamata_use_case,
     minamataCategories: categories,
+    industries: analysis.matched_industries.join(","),
+    themes: analysis.matched_themes.join(","),
+    uniquenessTags: analysis.uniqueness_tags.join(","),
+    scoreBreakdown: JSON.stringify({ ...analysis.score_breakdown, notes: analysis.score_notes }),
   }).onConflictDoNothing();
 
   logEvent("info", "job.analyze.done", {
@@ -305,6 +309,40 @@ export async function reanalyzeGrants(
   logEvent("info", "reanalyze.requeued", { count: targetIds.length });
 
   return { requeued: targetIds.length };
+}
+
+/**
+ * 未解析（raw_textはあるがgrant_ai_analysesが無い）補助金を一定件数だけ再キュー投入する。
+ * cronのたびに少しずつ処理することで、AIプロバイダの無料枠上限に引っかかって
+ * 失敗・ロストしたジョブ（Queueにdead letter未設定のため3回リトライ後に消える）を
+ * 自己修復的に解消する。
+ */
+export async function queueUnanalyzedBacklog(
+  env: Env,
+  limit = 30
+): Promise<{ requeued: number }> {
+  const db = drizzle(env.DB);
+
+  const rows = await db
+    .select({ id: grants.id })
+    .from(grants)
+    .leftJoin(grantAiAnalyses, eq(grantAiAnalyses.grantId, grants.id))
+    .where(and(isNull(grantAiAnalyses.id), isNotNull(grants.rawText)))
+    .limit(limit);
+
+  if (rows.length === 0) {
+    return { requeued: 0 };
+  }
+
+  await env.JOBS.sendBatch(
+    rows.map((g) => ({
+      body: { type: "grant.analyze", payload: { grantId: g.id } },
+    }))
+  );
+
+  logEvent("info", "backlog.requeued", { count: rows.length });
+
+  return { requeued: rows.length };
 }
 
 /** Upsert a system_meta key */

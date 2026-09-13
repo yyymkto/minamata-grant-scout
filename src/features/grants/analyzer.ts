@@ -1,16 +1,34 @@
 /**
- * AI Analyzer — Cloudflare Workers AI を使って補助金を4軸ルーブリック評価・解析
+ * AI Analyzer — Cloudflare Workers AI を使って補助金を解析する。
+ * LLMは産業・政策テーマ・水俣固有性タグへの分類のみを行い、0〜100点のスコアと
+ * A/B/Cランクは minamata-scoring-profile.ts の決定論的なロジックで計算する
+ * （LLM分類 + 決定論的スコア計算のハイブリッド方式）。
  */
 import { MINAMATA_PROFILE } from "./minamata-profile";
 import { parseJsonFromText } from "./json-parser";
 import { logEvent } from "../../lib/logging";
 import { z } from "zod";
 import type { Env, WorkersAiBinding } from "../../types";
+import {
+  INDUSTRIES,
+  THEMES,
+  UNIQUENESS_TAGS,
+  scoreSubsidy,
+  type ScoreBreakdown,
+} from "./minamata-scoring-profile";
 
 const FETCH_TIMEOUT_MS = 30_000;
 const MAX_RAW_TEXT_LENGTH = 8_000;
 
-const VALID_RANKS = ["A", "B", "C"] as const;
+/**
+ * LLMは「産業・テーマ・固有性タグへの分類」のみを行い、最終スコア（0〜100）とランクは
+ * minamata-scoring-profile.ts の決定論的なロジックで計算する。LLMに暗算させない。
+ * 未知のキー（ハルシネーション）は scoreSubsidy 側で無視されるため、ここでは緩く受ける。
+ */
+const flexibleBoolean = z.preprocess((v) => {
+  if (typeof v === "string") return v.toLowerCase() === "true";
+  return v;
+}, z.boolean());
 
 export const analysisSchema = z.object({
   summary_short: z.string().default(""),
@@ -22,82 +40,98 @@ export const analysisSchema = z.object({
   required_documents: z.string().nullable().default(null),
   notes: z.string().nullable().default(null),
   ai_confidence: z.coerce.number().int().min(0).max(100).default(50),
-  minamata_fit_score: z.coerce.number().int().min(0).max(100).default(0),
-  minamata_fit_rank: z.string().transform((v) =>
-    VALID_RANKS.includes(v as (typeof VALID_RANKS)[number]) ? v : "C"
-  ),
   minamata_fit_reason: z.string().default(""),
   suggested_department: z.string().default(""),
   suggested_department_reason: z.string().default(""),
   minamata_use_case: z.string().default(""),
   minamata_categories: z.union([z.array(z.string()), z.string()]).default([]),
+  matched_industries: z.array(z.string()).default([]),
+  matched_themes: z.array(z.string()).default([]),
+  uniqueness_tags: z.array(z.string()).default([]),
+  generic_migration: flexibleBoolean.default(false),
+  recruitment_effectively_closed: flexibleBoolean.default(false),
+  not_eligible_for_minamata: flexibleBoolean.default(false),
 }).transform((data) => {
-  // スコアとランクの整合性を担保
-  let rank = data.minamata_fit_rank;
-  if (data.minamata_fit_score >= 75) {
-    rank = "A";
-  } else if (data.minamata_fit_score >= 50) {
-    rank = "B";
-  } else {
-    rank = "C";
-  }
+  const scored = scoreSubsidy({
+    industries: data.matched_industries,
+    themes: data.matched_themes,
+    uniquenessTags: data.uniqueness_tags,
+    genericMigration: data.generic_migration,
+    recruitmentEffectivelyClosed: data.recruitment_effectively_closed,
+    notEligibleForMinamata: data.not_eligible_for_minamata,
+  });
+
   return {
     ...data,
-    minamata_fit_rank: rank,
+    minamata_fit_score: scored.score,
+    minamata_fit_rank: scored.rank,
+    score_breakdown: scored.breakdown as ScoreBreakdown,
+    score_notes: scored.notes,
   };
 });
 
+/**
+ * SYSTEM_PROMPT に埋め込む一覧テキストは minamata-scoring-profile.ts のデータから
+ * 都度生成する（プロンプトと配点ロジックの定義が二重管理でズレるのを防ぐため）。
+ */
+function renderIndustriesForPrompt(): string {
+  return Object.entries(INDUSTRIES)
+    .map(([key, def]) => `- ${key}（${def.label}）: ${def.rationale}`)
+    .join("\n");
+}
+
+function renderThemesForPrompt(): string {
+  return Object.entries(THEMES)
+    .map(([key, def]) => `- ${key}（${def.label}）: ${def.basis}`)
+    .join("\n");
+}
+
+function renderUniquenessTagsForPrompt(): string {
+  return Object.entries(UNIQUENESS_TAGS)
+    .map(([key, def]) => {
+      const examples = def.examples ? `\n  例: ${def.examples.join(" / ")}` : "";
+      const doNotApply = def.doNotApplyTo
+        ? `\n  ※付けない対象: ${def.doNotApplyTo.join("、")}`
+        : "";
+      return `- ${key}（${def.label}、加点${def.bonus}点）: ${def.appliesWhen}${examples}${doNotApply}`;
+    })
+    .join("\n");
+}
+
 export const SYSTEM_PROMPT = `あなたは熊本県水俣市（みなまたし）専属の補助金アナリストです。
-与えられた補助金・公募情報を厳密に精査し、水俣市役所および市内事業者（農家・漁師・製造業・観光事業者・商工業者）にとっての活用価値を評価し、指定されたJSON形式で結果を返してください。
+与えられた補助金・公募情報を厳密に精査し、下記の基準に従って「該当する産業」「該当する政策テーマ」「水俣固有性タグ」への分類と、いくつかの判定フラグの設定を行い、指定されたJSON形式で結果を返してください。
 必ず有効なJSONのみを出力してください。
+
+**重要**: 0〜100点のスコアやA/B/Cのランクはあなた自身が計算する必要はありません。以下の分類結果から自動的に計算されるので、あなたの役割は分類の正確性のみです。スコアやランクをJSONに含める必要はありません。
 
 ${MINAMATA_PROFILE}
 
-## 評価基準: 4軸ルーブリック採点法（合計 0〜100点）
-以下の4つの観点ごとに客観的に採点し、合計点を minamata_fit_score（0〜100）として算定してください。
+## 分類1: 該当する産業（matched_industries、複数選択可、無ければ空配列）
+補助金が対象とする産業が、水俣市の以下のどの産業に該当するか選んでください（該当が無ければ空配列）。
+${renderIndustriesForPrompt()}
 
-1. 【申請主体・適格性】（0〜25点）
-   - 水俣市のプレイヤー（市役所、市内の柑橘・茶農家、不知火海の漁業者、JNC等の製造業、湯の児・湯の鶴温泉の宿泊業、エコタウン関連企業、市内小規模商工業）が応募対象に含まれるか？
-   - 25点: 水俣市の対象者が直接の単独申請主体として明記されている
-   - 15点: 中小企業・小規模事業者枠や地方自治体枠で広く申請可能
-   - 5点: 共同申請や間接的（JA・商工会議所・県経由等）なら申請可能
-   - 0点: 大企業限定、三大都市圏限定、指定対象外地域など水俣市から応募不可
+## 分類2: 該当する政策テーマ（matched_themes、複数選択可、無ければ空配列）
+産業分類を持たない補助金（移住支援金、DX推進事業など）や、複数産業を横断する政策テーマに該当する場合はこちらで拾ってください。産業と重複して選んでも構いません。
+${renderThemesForPrompt()}
 
-2. 【水俣市基幹産業・重点課題合致度】（0〜35点）
-   - 水俣市の主要産業・重点施策に合致しているか？
-   - 30〜35点: 水俣市の特産品・基幹産業（柑橘/水俣茶、不知火海の漁業、エコタウン・リサイクル関連産業、湯の児・湯の鶴温泉）や、環境モデル都市として国内屈指の実績を持つ脱炭素・資源循環・環境教育施策にドンピシャで合致
-   - 20〜29点: 市内事業者の一般的な設備投資、省エネ、DX、事業承継、人手不足対策、あるいは高齢化・水俣病対策に伴う医療福祉施策に合致
-   - 10〜19点: 汎用的な補助金（水俣市でも使えなくはないが特段の適合性はない）
-   - 0〜9点: 水俣市の実態・産業構造とほとんど関連がない
+## 分類3: 水俣固有性タグ（uniqueness_tags、複数選択可、無ければ空配列）
+「他の自治体では代替の効かない、水俣市だからこそ該当する」制度的・歴史的資産に合致する場合のみ選んでください。汎用的な補助金には付けないでください。
+${renderUniquenessTagsForPrompt()}
 
-3. 【補助規模・実効性】（0〜20点）
-   - 補助率や補助上限が、財政基盤の弱い地方都市や市内中小零細事業者にとって実用的か？
-   - 16〜20点: 補助率が高い（2/3、3/4以上）または定額交付。小規模事業者でも自己負担が少なく使いやすい
-   - 10〜15点: 補助率1/2程度、または標準的な補助金
-   - 0〜9点: 自己負担比率が高すぎる、または億単位の大規模投資が必須で市内事業者には過大
-
-4. 【申請・執行の実現性】（0〜20点）
-   - 申請手続きの難易度や、採択・執行の現実性があるか？
-   - 16〜20点: 申請要件が簡潔で小規模事業者・市役所担当課でも無理なく対応可能
-   - 10〜15点: 通常の申請書類（事業計画書等）で対応可能
-   - 0〜9点: 産学官連携の複雑なコンソーシアム必須、高度な研究開発要件などハードルが極めて高い
-   - 0〜3点: 下記「募集終了・事後手続きページの判定」に該当し、新規の申請が事実上不可能な場合
+## 判定フラグ
+- generic_migration（真偽値）: 移住支援金・住宅取得補助・空き家バンクなど、水俣病の教訓や地域固有の文脈と関係なく全国どこでも成立する汎用的な移住・定住施策なら true。この場合、MOYAIタグを選んでいても加点されません（水俣病を移住プロモーションに利用していると受け取られるリスクを避けるガードレールです）
+- not_eligible_for_minamata（真偽値）: 大企業限定、三大都市圏限定、指定対象外地域など、水俣市役所・市内事業者・市民がそもそも応募主体になれない場合 true
+- recruitment_effectively_closed（真偽値）: 下記「募集終了・事後手続きページの判定」に該当する場合 true
 
 ## 募集終了・事後手続きページの判定（重要）
-補助金・公募情報のツール側の締切情報（下記ユーザーメッセージの「締切」欄）は、データ取得元APIの登録上の値であり、実態とズレていることがある。以下のいずれかに該当する場合、ツール側の締切がどれだけ先の日付であっても鵜呑みにせず、「新規の申請は実質的に終了している」と判断すること。
+補助金・公募情報のツール側の締切情報（下記ユーザーメッセージの「締切」欄）は、データ取得元APIの登録上の値であり、実態とズレていることがある。以下のいずれかに該当する場合、ツール側の締切がどれだけ先の日付であっても鵜呑みにせず、「新規の申請は実質的に終了している」と判断し、recruitment_effectively_closedをtrueにすること。
 
 - 本文（原文）中に、新規申請の受付終了日として具体的な日付が明記されており、その日付が「本日の日付」（ユーザーメッセージ参照）より前である
 - タイトルや本文が「交付申請」「交付申請等」「実績報告」「精算払」「採択辞退」など、**すでに採択された事業者向けの事後手続き専用ページ**であることを示している（新規公募ではない）
 
-該当する場合は必ず以下を行う：
-- 【申請・執行の実現性】を0〜3点に抑え、minamata_fit_scoreに反映する
+該当する場合は必ず以下も行う：
 - notesに「本文記載の実際の新規申請受付終了日（YYYY-MM-DD）は本日時点で終了済み。新規募集ではなく事後手続き専用ページの可能性が高い」等、判断根拠を具体的に明記する
 - summary_shortの【アクション】は「締切までに提出」のような誤解を招く表現を避け、「新規募集は終了している可能性が高いため、水俣市の担当課で最新の公募状況を確認」のように慎重な表現にする
-
-## ランク判定（minamata_fit_rank）
-- A (75〜100点): 水俣市・市民が直ちに応募・周知を検討すべき有望補助金
-- B (50〜74点): 条件付き・間接的に活用余地がある補助金
-- C (0〜49点): 水俣市との関連性が薄い、または申請が現実的でない補助金
 
 ## AI要約フォーマット（summary_short）
 事業者が5秒で応募可否を判断できるよう、以下の4要素を含めた簡潔で具体的な構造化サマリー（120〜180文字程度）を作成してください:
@@ -108,7 +142,7 @@ ${MINAMATA_PROFILE}
 単なる一般論ではなく、水俣市の具体的資源（不知火海、湯の児・湯の鶴温泉、エコタウン、甘夏・水俣茶の産地、環境モデル都市としての実績等）や課題（人口減少・高齢化、農林業の担い手不足、水俣病対策としての恒久的な医療福祉ニーズ等）を踏まえた具体的な活用アイデアを2〜3文で記載してください。
 
 ## 出力形式（JSON）
-必ず以下のキーを持つJSONオブジェクトのみを返してください。
+必ず以下のキーを持つJSONオブジェクトのみを返してください。スコア・ランクは含めないでください（自動計算されます）。
 
 {
   "summary_short": "【対象】... 【使途】... 【補助】... 【アクション】...",
@@ -120,16 +154,20 @@ ${MINAMATA_PROFILE}
   "required_documents": "主な必要書類（簡潔に）。不明なら null",
   "notes": "その他注意点。なければ null",
   "ai_confidence": 0〜100の整数,
-  "minamata_fit_score": 0〜100の整数,
-  "minamata_fit_rank": "A | B | C",
-  "minamata_fit_reason": "4軸評価に基づく適合理由の解説（2〜3文）",
+  "matched_industries": ["該当する産業キーの配列（0個以上、上記「分類1」のキーのみ使用）"],
+  "matched_themes": ["該当する政策テーマキーの配列（0個以上、上記「分類2」のキーのみ使用）"],
+  "uniqueness_tags": ["該当する固有性タグキーの配列（0個以上、上記「分類3」のキーのみ使用）"],
+  "generic_migration": true または false,
+  "not_eligible_for_minamata": true または false,
+  "recruitment_effectively_closed": true または false,
+  "minamata_fit_reason": "上記の分類に至った根拠の解説（2〜3文）",
   "suggested_department": "水俣市役所で主担当になりそうな課",
   "suggested_department_reason": "その課を推定した理由（1〜2文）",
   "minamata_use_case": "水俣市での具体的な活用仮説（2〜3文）",
   "minamata_categories": ["該当するカテゴリをすべて選択"]
 }
 
-## minamata_categories の選択肢（複数選択可）
+## minamata_categories の選択肢（複数選択可。UI表示・絞り込み用のタグで、上記の産業・テーマ分類とは別に選択する）
 - 農業: 柑橘（甘夏・デコポン）・水俣茶・サラダたまねぎ・環境保全型農業など農業全般
 - 漁業: 不知火海の漁業・水産加工など漁業全般
 - 林業: 森林整備・木材利用など
@@ -164,8 +202,17 @@ export interface AnalysisResult {
   required_documents: string | null;
   notes: string | null;
   ai_confidence: number;
+  matched_industries: string[];
+  matched_themes: string[];
+  uniqueness_tags: string[];
+  generic_migration: boolean;
+  not_eligible_for_minamata: boolean;
+  recruitment_effectively_closed: boolean;
+  /** minamata-scoring-profile.ts のロジックで自動計算される（LLMは出力しない） */
   minamata_fit_rank: string;
   minamata_fit_score: number;
+  score_breakdown: ScoreBreakdown;
+  score_notes: string[];
   minamata_fit_reason: string;
   suggested_department: string;
   suggested_department_reason: string;
@@ -388,7 +435,23 @@ ${truncatedText || "（本文なし — タイトルと省庁から推定して�
     }
   }
 
-  // 2. Fallback: OpenAI GPT-4o-mini (if configured)
+  // 2. Fallback: Google Gemini (if configured) — AI Studio 無料枠、OpenAI互換エンドポイント経由
+  if (env.GEMINI_API_KEY) {
+    logEvent("info", "analyzer.fallback_to_gemini", { title: grant.title });
+    const result = await callHttpLlm(
+      {
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+        apiKey: env.GEMINI_API_KEY,
+        model: "gemini-2.0-flash",
+      },
+      SYSTEM_PROMPT,
+      userMessage,
+      grant.title
+    );
+    if (result) return result;
+  }
+
+  // 3. Fallback: OpenAI GPT-4o-mini (if configured)
   if (env.OPENAI_API_KEY) {
     logEvent("info", "analyzer.fallback_to_openai", { title: grant.title });
     const result = await callHttpLlm(
@@ -404,7 +467,7 @@ ${truncatedText || "（本文なし — タイトルと省庁から推定して�
     if (result) return result;
   }
 
-  // 3. Fallback: Kimi K2.5 (if configured)
+  // 4. Fallback: Kimi K2.5 (if configured)
   if (env.KIMI_API_KEY) {
     logEvent("info", "analyzer.fallback_to_kimi", { title: grant.title });
     const result = await callHttpLlm(
