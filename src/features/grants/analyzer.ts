@@ -478,7 +478,7 @@ ${truncatedText || "（本文なし — タイトルと省庁から推定して�
       {
         baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
         apiKey: env.GEMINI_API_KEY,
-        model: "gemini-2.0-flash",
+        model: "gemini-3.6-flash",
       },
       SYSTEM_PROMPT,
       userMessage,
