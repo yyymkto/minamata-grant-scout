@@ -51,6 +51,34 @@ export const analysisSchema = z.object({
   generic_migration: flexibleBoolean.default(false),
   recruitment_effectively_closed: flexibleBoolean.default(false),
   not_eligible_for_minamata: flexibleBoolean.default(false),
+}).superRefine((data, ctx) => {
+  /**
+   * 安全弁: 実データ検証で「関係ない」と理由説明しながらテーマを機械的に
+   * 全列挙する等の分類崩壊が確認された。不自然に多い分類は失敗とみなし、
+   * safeParseを失敗させて次のモデル・プロバイダにフォールバックさせる
+   * （個々の補助金が本当に5テーマ以上に跨ることは稀なため、閾値は余裕を持たせている）。
+   */
+  if (data.matched_themes.length > 5) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["matched_themes"],
+      message: `matched_themes has ${data.matched_themes.length} entries — looks like the model echoed the theme list instead of classifying`,
+    });
+  }
+  if (data.matched_industries.length > 4) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["matched_industries"],
+      message: `matched_industries has ${data.matched_industries.length} entries — looks like a classification failure`,
+    });
+  }
+  if (data.uniqueness_tags.length > 3) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["uniqueness_tags"],
+      message: `uniqueness_tags has ${data.uniqueness_tags.length} entries — uniqueness tags should be rare`,
+    });
+  }
 }).transform((data) => {
   const scored = scoreSubsidy({
     industries: data.matched_industries,
@@ -221,16 +249,22 @@ export interface AnalysisResult {
 }
 
 /**
- * Workers AI models to try in order, cheapest first (Workers AI無料枠は1日10,000ニューロン)。
+ * Workers AI models to try in order（Workers AI無料枠は1日10,000ニューロン）。
  * 参考ニューロン単価（入力/出力 per M tokens、developers.cloudflare.com/workers-ai/platform/pricing/）:
- *   llama-3.1-8b-instruct-fp8-fast: 4,119 / 34,868
  *   qwen3-30b-a3b-fp8 (MoE, active 3B):  4,625 / 30,475
+ *   llama-3.1-8b-instruct-fp8-fast:      4,119 / 34,868
  *   llama-3.3-70b-instruct-fp8-fast:    26,668 / 204,805（安全網。滅多に到達しない想定）
  * qwen3.8-27bは同クラス最高コスト（40,909 / 290,909）のため除外。
+ *
+ * 産業・政策テーマ・固有性タグへの多項目分類＋理由説明を同時に整合させて出力する必要が
+ * あるため、コストがほぼ同等のqwen3-30b-a3b-fp8（MoEで実質3Bだが総パラメータ30B）を
+ * 最優先にしている。llama-3.1-8b-instruct-fp8-fastは本番データの検証で「関係ない」と
+ * 理由説明しながら全テーマを機械的に列挙する等の分類崩壊が確認されたため、
+ * 2番手の安価なフォールバックに格下げした（2026-09の実データ検証結果）。
  */
 const WORKERS_AI_MODELS = [
-  "@cf/meta/llama-3.1-8b-instruct-fp8-fast",
   "@cf/qwen/qwen3-30b-a3b-fp8",
+  "@cf/meta/llama-3.1-8b-instruct-fp8-fast",
   "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
 ] as const;
 

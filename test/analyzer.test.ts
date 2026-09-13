@@ -2,6 +2,97 @@ import { describe, it, expect, vi } from "vitest";
 import { analysisSchema, analyzeGrant } from "../src/features/grants/analyzer";
 import type { Env, WorkersAiBinding } from "../src/types";
 
+const BASE_FIELDS = {
+  summary_short: "【対象】... 【使途】... 【補助】... 【アクション】...",
+  support_type: "補助金",
+  target_entities: "事業者",
+  max_amount: null,
+  subsidy_rate: null,
+  eligible_themes: "",
+  required_documents: null,
+  notes: null,
+  ai_confidence: 50,
+  generic_migration: false,
+  recruitment_effectively_closed: false,
+  not_eligible_for_minamata: false,
+  minamata_fit_reason: "",
+  suggested_department: "",
+  suggested_department_reason: "",
+  minamata_use_case: "",
+  minamata_categories: [],
+};
+
+describe("analysisSchema — classification plausibility guardrail", () => {
+  it("should reject a response that echoes (almost) the entire theme list instead of classifying", () => {
+    // Regression test: production data showed the cheap model tagging a grant with
+    // all 14 themes while its own `minamata_fit_reason` said it was unrelated to Minamata.
+    const raw = {
+      ...BASE_FIELDS,
+      matched_industries: [],
+      matched_themes: [
+        "population_childcare",
+        "gaika_business",
+        "exchange_population",
+        "healthcare_workforce",
+        "disaster_resilience",
+        "environment_gx",
+        "migration_settlement",
+      ],
+      uniqueness_tags: [],
+    };
+
+    const parsed = analysisSchema.safeParse(raw);
+    expect(parsed.success).toBe(false);
+  });
+
+  it("should reject an implausibly large matched_industries list", () => {
+    const raw = {
+      ...BASE_FIELDS,
+      matched_industries: [
+        "medical_welfare",
+        "manufacturing",
+        "wholesale_retail",
+        "construction",
+        "tourism_sports",
+      ],
+      matched_themes: [],
+      uniqueness_tags: [],
+    };
+
+    const parsed = analysisSchema.safeParse(raw);
+    expect(parsed.success).toBe(false);
+  });
+
+  it("should reject an implausibly large uniqueness_tags list", () => {
+    const raw = {
+      ...BASE_FIELDS,
+      matched_industries: [],
+      matched_themes: [],
+      uniqueness_tags: [
+        "MINAMATA_DISEASE_AREA",
+        "MOYAI",
+        "MINAMATA_ASHIKITA_PLAN",
+        "ENV_MODEL_CITY",
+      ],
+    };
+
+    const parsed = analysisSchema.safeParse(raw);
+    expect(parsed.success).toBe(false);
+  });
+
+  it("should accept a normal, plausible classification", () => {
+    const raw = {
+      ...BASE_FIELDS,
+      matched_industries: ["medical_welfare"],
+      matched_themes: ["population_childcare"],
+      uniqueness_tags: [],
+    };
+
+    const parsed = analysisSchema.safeParse(raw);
+    expect(parsed.success).toBe(true);
+  });
+});
+
 describe("analysisSchema", () => {
   it("should classify into industries/themes and compute rank A deterministically", () => {
     const raw = {

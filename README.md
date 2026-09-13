@@ -31,7 +31,7 @@ Cloudflare 完結（Workers + D1 + Queues + Workers AI + Cron Triggers）。外�
 | Database | D1 (SQLite) + Drizzle ORM |
 | 非同期処理 | Cloudflare Queues |
 | 定期実行 | Cron Triggers |
-| AI 解析 | Cloudflare Workers AI (Llama 3.3 70B / Qwen 2.5 72B) |
+| AI 解析 | Cloudflare Workers AI (qwen3-30b-a3b-fp8 primary / llama-3.1-8b・llama-3.3-70b fallback) |
 | データソース1 | jGrants API (デジタル庁、対象地域: 全国 + 熊本県) — 国の補助金 |
 | データソース2 | 熊本県公式サイト RSS（15部署の新着情報） — 県独自の補助金 |
 | Build | Vite + @cloudflare/vite-plugin |
@@ -69,21 +69,22 @@ npm run ingest -- --analyze-only  # 未解析分のみAI解析
 npm run ingest -- --remote        # リモートD1に書き込み
 ```
 
-## AI 解析（4軸ルーブリック評価・構造化サマリー）
+## AI 解析（LLM分類 + 決定論的スコア計算のハイブリッド方式・構造化サマリー）
 
-各補助金に対して Workers AI（Llama 3.3 70B / Qwen 2.5 72B）が以下を生成：
+各補助金に対して Workers AI（qwen3-30b-a3b-fp8 primary / llama-3.1-8b-instruct-fp8-fast・llama-3.3-70b-instruct-fp8-fast fallback、さらに Gemini・OpenAI・Kimi へフォールバック）が「産業・政策テーマ・水俣固有性タグへの分類」のみを行い、以下を生成：
 
 | フィールド | 内容 |
 |---|---|
-| `minamata_fit_score` | 4軸ルーブリック採点（申請主体適格性:25点、産業合致度:35点、補助実効性:20点、実現性:20点）による 0〜100点 の適合スコア |
+| `minamata_fit_score` | LLMの分類結果（産業・政策テーマ・固有性タグ・時限加点）から `minamata-scoring-profile.ts` が決定論的に計算する 0〜100点 の適合スコア（LLMは点数を出力しない） |
 | `minamata_fit_rank` | スコアに基づく自動ランク判定: A（75点以上・有望）/ B（50〜74点・検討余地あり）/ C（49点以下・関連薄い） |
-| `minamata_fit_reason` | 4軸評価に基づく水俣市への適合理由 |
+| `minamata_fit_reason` | 分類結果に基づく水俣市への適合理由（LLMの自由記述） |
 | `minamata_use_case` | 水俣市の資源・課題を踏まえた具体的な活用仮説 |
-| `minamata_categories` | カテゴリ分類（農業、漁業、旅館・観光、環境・エネルギー 等） |
+| `minamata_categories` | UI表示・絞り込み用のカテゴリ分類（農業、漁業、旅館・観光、環境・エネルギー 等） |
+| `industries` / `themes` / `uniqueness_tags` | スコア計算に使う分類結果（産業・政策テーマ・水俣固有性タグのキー） |
 | `summary_short` | 【対象】【使途】【補助】【アクション】の構造化サマリー |
 | `max_amount` | 補助額上限 |
 
-UI ではデフォルトで A・B ランクのみ表示（C は除外）。評価ルーブリックと水俣市プロファイルは `src/features/grants/analyzer.ts` の `SYSTEM_PROMPT` と `src/features/grants/minamata-profile.ts` で管理している。
+UI ではデフォルトで A・B ランクのみ表示（C は除外）。分類ロジックのプロンプトは `src/features/grants/analyzer.ts` の `SYSTEM_PROMPT`、配点モデル（産業・政策テーマ・固有性タグ・時限加点の数値と根拠）は `src/features/grants/minamata-scoring-profile.ts` で一元管理しており、市の定性的なプロフィール文章は `src/features/grants/minamata-profile.ts` にある。評価方法は `/grants/about-scoring` ページでも公開している。
 
 ## API
 
@@ -92,6 +93,7 @@ UI ではデフォルトで A・B ランクのみ表示（C は除外）。評�
 | `GET /api/grants` | 一覧（フィルタ: `rank`, `category`, `q`, `include_ended`） |
 | `GET /api/grants/status` | ステータス（件数・最終更新日時） |
 | `GET /api/grants/:id` | 詳細 + AI 解析結果 |
+| `GET /api/grants/scoring-profile` | 配点モデル（産業・政策テーマ・固有性タグ・時限加点）を返す公開エンドポイント。`/grants/about-scoring` ページが利用 |
 | `POST /api/grants/ingest` | 手動 ingest トリガー（要 `x-admin-secret`） |
 | `POST /api/grants/reanalyze` | 既存データの再解析トリガー（要 `x-admin-secret`。body `{ ids?: number[] }` 省略時は全件） |
 | `GET /api/health` | ヘルスチェック |

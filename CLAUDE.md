@@ -11,7 +11,7 @@
 - cf-starter テンプレートベース（認証・org・RBAC は全削除済み）
 - React + Tailwind v4 + TanStack Query / Hono / D1 + Drizzle
 - Cloudflare Queues（非同期ジョブ）+ Cron Triggers（定期実行）
-- AI: Cloudflare Workers AI (Llama 3.3 70B / Qwen 2.5 72B 等) primary / OpenAI GPT-4o-mini・Kimi K2.5 fallback
+- AI: Cloudflare Workers AI (qwen3-30b-a3b-fp8 primary / llama-3.1-8b・llama-3.3-70b fallback) primary / Gemini・OpenAI GPT-4o-mini・Kimi K2.5 fallback
 
 ## 開発コマンド
 

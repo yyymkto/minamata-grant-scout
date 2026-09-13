@@ -407,7 +407,9 @@ export function scoreSubsidy(input: ScoreSubsidyInput): ScoreResult {
     const hitTag = input.uniquenessTags.includes(key);
     let hit = hitTheme || hitTag;
 
-    if (hit && m.appliesToIndustries && m.appliesToIndustries.length > 0 && input.industries.length > 0) {
+    if (hit && m.appliesToIndustries && m.appliesToIndustries.length > 0) {
+      // 産業が1つも分類されていない場合は「対象産業に該当するか不明」であり、
+      // 対象産業に限定されたボーナスを無条件で適用してはならない（該当なし扱いにする）
       const inScope = input.industries.some((i) => m.appliesToIndustries!.includes(i as IndustryKey));
       if (!inScope) hit = false;
     }
