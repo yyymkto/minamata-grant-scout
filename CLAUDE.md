@@ -1,5 +1,21 @@
 # CLAUDE.md
 
+## 最初に読むもの
+
+1. **`docs/agent-notes/CURRENT_STATUS.md`** ← 必読。プロジェクトの「今」の状態。
+   これだけ読めば、他のエージェント（Antigravity等）との認識ズレを防げます。
+2. 実装前に `docs/agent-notes/design-specs/` に該当機能の設計書がないか確認する
+   （claude.aiでの設計担当セッションが作成する。ある場合はそれに従う）。
+3. 詳しい経緯を知りたい場合のみ `docs/agent-notes/decisions-log/` を参照。
+
+## 運用ルール
+
+- **状態の変更を伴う作業をしたら、必ず `CURRENT_STATUS.md` を更新すること。**
+- 大きな設計判断をしたら、`decisions-log/` に日付つきで1ファイル追記する
+  （このファイル自体は上書きせず、追記のみ）。
+- `docs/agent-notes/design-specs/` にある設計書と実装内容が食い違う場合、
+  無断で設計を変更・省略しない。疑問点として設計書に追記し、作業を止めて確認する。
+
 ## プロジェクト概要
 
 水俣市（熊本県）向けの補助金AIスカウトシステム。jGrants API（「全国」+「熊本県」の国の補助金）と熊本県公式サイトRSS（県独自の補助金、jGrantsには載らない）の2系統から毎日自動収集し、Cloudflare Workers AIで水俣市への適合度を評価する。Cloudflare完結（Workers + D1 + Queues + Cron Triggers）。
