@@ -1,18 +1,30 @@
 # エージェント間情報共有の仕組み：使い方
 
-Claude Code・Antigravity・claude.ai（ブラウザ経由の設計担当）など、複数のAIツールで
+Claude Code・Antigravity・claude.ai（ブラウザ経由）など、複数のAIツールで
 このプロジェクトを進めるにあたり、「誰かが一歩古い状態を把握したまま指示を出す」
 というズレを防ぐための最小限の仕組みです（`minamata-support-portal`で運用実績のある
 仕組みをこのプロジェクトにも移植したもの）。
 
+## 役割分担
+
+| 役割 | 担当 | 理由 |
+|---|---|---|
+| 設計（仕様・タスク分解） | **Claude Code** | リポジトリを直接読み書きできるため、既存コード・実データを確認した上で設計でき、成果物を`design-specs/`に直接書き込める |
+| 実装 | **Antigravity** | `AGENTS.md`を自動で読み、設計書に従って実装する |
+| 企画・戦略の壁打ち（任意） | claude.ai | リポジトリを読めなくても成立する話題に限定して使う |
+
+**主たるループはClaude Code ↔ Antigravity**。両者ともリポジトリのファイルを
+読み書きできるため、設計書の受け渡しも、Antigravityが書いた疑問点の回収も、
+実装差分のレビューも、人間のコピペを介さずに完結します。
+
 ## ファイル構成
 
 ```
-CLAUDE.md                              ← Claude Codeが自動で読む起点ファイル
-AGENTS.md                              ← Antigravityが自動で読む起点ファイル
+CLAUDE.md                              ← Claude Codeが自動で読む起点ファイル（設計担当向け）
+AGENTS.md                              ← Antigravityが自動で読む起点ファイル（実装担当向け）
 docs/agent-notes/
 ├── CURRENT_STATUS.md                  ← 常に最新の状態（上書き運用）
-├── design-specs/                      ← Claude（設計）→Antigravity（実装）の受け渡し用
+├── design-specs/                      ← Claude Code（設計）→Antigravity（実装）の受け渡し用
 │   ├── TEMPLATE.md                    ← 新しい設計書を書く時のひな形
 │   └── YYYY-MM-DD_機能名.md           ← 個別機能の設計書（実装完了後も残す）
 └── decisions-log/
@@ -20,25 +32,28 @@ docs/agent-notes/
     └── YYYY-MM-DD_件名.md             ← 決定の記録（追記専用、削除しない）
 ```
 
+`CLAUDE.md`と`AGENTS.md`は、プロジェクト概要・運用ルールは共通ですが、
+**役割の記述だけが異なります**（前者は設計、後者は実装専任）。
+なお`CLAUDE.md`には技術的な詳細（jGrants APIの注意点・DB構造・AI解析の制約など）も
+含まれているため、Antigravityも必要に応じて参照してください。
+
 `design-specs/` と `decisions-log/` の違い：
 - `design-specs/` は**実装前**に書く、これから作るものの仕様書（概要・データ構造・
   画面/API仕様・タスク一覧）。
 - `decisions-log/` は**決まった後**に書く、なぜその設計にしたかの記録。
 
-## claude.ai（設計担当）との連携フロー
+## 設計→実装→フィードバックの流れ
 
-1. 大きめの機能は、claude.aiのプロジェクト機能でClaudeに設計を依頼する
-   （役割は設計のみ、実装コードは書かない）。
-2. Claudeが`design-specs/TEMPLATE.md`の型で設計書を書く。
-3. 人間がその出力をコピーし、`docs/agent-notes/design-specs/YYYY-MM-DD_機能名.md`
-   として保存する（claude.aiは直接リポジトリを読み書きできないため）。
-4. Antigravity（実装担当）がこの設計書に従って実装する。
-   **食い違いや不足を見つけても無断で仕様を変えず、設計書に疑問点を追記した上で
-   作業を止めて報告する。**
-5. 実装完了後、設計書の「状態」を更新し、`CURRENT_STATUS.md`にも反映する。
-   大きな判断があれば`decisions-log/`にも記録する。
+1. Claude Codeが既存コード・データを確認した上で設計し、
+   `docs/agent-notes/design-specs/YYYY-MM-DD_機能名.md`を書く
+   （`TEMPLATE.md`の型：概要／データ構造／画面・API仕様／タスク一覧／設計判断の理由）。
+2. Antigravityがその設計書に従って実装する。
+   **食い違いや不足を見つけても無断で仕様を変えず、設計書の「実装時の疑問点」欄に
+   追記した上で作業を止めて報告する。**
+3. Claude Codeが設計書の疑問点と実際の差分を読み、設計を修正するか実装を直す。
+4. 完了したら設計書の「状態」を更新し、`CURRENT_STATUS.md`にも反映する。
 
-## 使い方（3ルールだけ）
+## 使い方（4ルールだけ）
 
 ### 1. 作業を始める前に `CURRENT_STATUS.md` を読む
 Claude Codeなら`CLAUDE.md`経由で、Antigravityなら`AGENTS.md`経由で自動的に
@@ -52,3 +67,14 @@ Claude Codeなら`CLAUDE.md`経由で、Antigravityなら`AGENTS.md`経由で自
 `CURRENT_STATUS.md`は「今」の状態だけなので、**なぜそうなったか**はすぐ
 消えてしまう。あとから「なぜこの設計にしたんだっけ」となりそうな決定は、
 `TEMPLATE.md`をコピーして1ファイル追記する。
+
+### 4. 設計書と食い違ったら、勝手に直さず止めて報告する
+実装側が詰まったときに黙って設計を変えてしまうと、設計側が現実を知らないまま
+次の設計を続けることになる。疑問点は設計書に書き残すこと。
+
+## claude.aiとのやり取りについて
+
+claude.aiはリポジトリを直接読めないため、使う場合は`CURRENT_STATUS.md`の中身を
+コピペで共有する運用になる。コードの実態調査が必要な設計をclaude.aiに任せると、
+存在しないファイル名や既にあるフィールドを前提にした設計書が出てくることがある
+ため、その種の設計はClaude Codeに任せること。

@@ -1,11 +1,20 @@
 # CLAUDE.md
 
+## 役割
+
+- Claude Code は**設計担当**。既存コード・実データを確認した上で設計し、
+  `docs/agent-notes/design-specs/YYYY-MM-DD_機能名.md` に設計書を書く
+  （`design-specs/TEMPLATE.md` の型に従う）。
+- 実装は Antigravity が担当する（`AGENTS.md` を読む）。ただし、バグ修正・調査・
+  レビューなど設計書を挟むほどでない作業は Claude Code が直接行ってよい。
+- Antigravity が設計書の「実装時の疑問点・ブロッカー」欄に追記した内容と、
+  実際の実装差分を読んで、設計を修正するか実装を直すのも Claude Code の役割。
+
 ## 最初に読むもの
 
 1. **`docs/agent-notes/CURRENT_STATUS.md`** ← 必読。プロジェクトの「今」の状態。
    これだけ読めば、他のエージェント（Antigravity等）との認識ズレを防げます。
-2. 実装前に `docs/agent-notes/design-specs/` に該当機能の設計書がないか確認する
-   （claude.aiでの設計担当セッションが作成する。ある場合はそれに従う）。
+2. 着手前に `docs/agent-notes/design-specs/` に該当機能の設計書がないか確認する。
 3. 詳しい経緯を知りたい場合のみ `docs/agent-notes/decisions-log/` を参照。
 
 ## 運用ルール
